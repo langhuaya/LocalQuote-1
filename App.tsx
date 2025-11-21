@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -89,6 +90,7 @@ const TRANSLATIONS = {
     subtotal: 'Subtotal',
     discountRate: 'Discount Rate',
     discountAmount: 'Discount Amount',
+    shipping: 'Shipping Cost',
     grandTotal: 'Grand Total',
     type: 'Type',
     validUntil: 'Valid Until',
@@ -165,6 +167,7 @@ const TRANSLATIONS = {
     subtotal: '小计',
     discountRate: '折扣率',
     discountAmount: '折扣金额',
+    shipping: '运费',
     grandTotal: '总计',
     type: '类型',
     validUntil: '有效期至',

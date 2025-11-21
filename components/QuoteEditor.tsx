@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Quote, QuoteType, Currency, Customer, Product, QuoteItem, CompanySettings } from '../types';
 import { Plus, Trash2, Save, ArrowLeft, Eye, X, Search, Image as ImageIcon } from 'lucide-react';
@@ -38,6 +39,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
   const [paymentTerms, setPaymentTerms] = useState('100% T/T in advance');
   const [notes, setNotes] = useState('');
   const [discountRate, setDiscountRate] = useState(0);
+  const [shipping, setShipping] = useState(0);
   
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [showPreview, setShowPreview] = useState(false);
@@ -57,6 +59,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
       setPaymentTerms(initialQuote.paymentTerms);
       setNotes(initialQuote.notes);
       setDiscountRate(initialQuote.discountRate);
+      setShipping(initialQuote.shipping || 0);
       setItems(initialQuote.items);
     } else {
       // New Quote Defaults
@@ -85,12 +88,13 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
   const { subtotal, discountAmount, total } = useMemo(() => {
     const sub = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
     const disc = sub * (discountRate / 100);
+    // Total = Subtotal - Discount + Shipping
     return {
       subtotal: sub,
       discountAmount: disc,
-      total: sub - disc,
+      total: sub - disc + shipping,
     };
-  }, [items, discountRate]);
+  }, [items, discountRate, shipping]);
 
   // --- Handlers ---
   const handleAddItem = () => {
@@ -171,6 +175,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
           subtotal,
           discountRate,
           discountAmount,
+          shipping,
           total,
           incoterms,
           leadTime,
@@ -468,10 +473,29 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                         className="w-20 p-1 border rounded text-right text-sm"
                     />
                  </div>
-                 <div className="flex justify-between text-red-500 text-sm">
-                    <span>{t('discountAmount')}</span>
-                    <span>- {currency} {discountAmount.toFixed(2)}</span>
+                 {discountAmount > 0 && (
+                     <div className="flex justify-between text-red-500 text-sm">
+                        <span>{t('discountAmount')}</span>
+                        <span>- {currency} {discountAmount.toFixed(2)}</span>
+                     </div>
+                 )}
+                 
+                 {/* Shipping Input */}
+                 <div className="flex justify-between items-center text-gray-600">
+                    <span className="flex items-center">{t('shipping')}</span>
+                    <div className="flex items-center">
+                        <span className="mr-2 text-sm">{currency}</span>
+                        <input 
+                            type="number" 
+                            min="0" 
+                            step="0.01"
+                            value={shipping}
+                            onChange={(e) => setShipping(parseFloat(e.target.value) || 0)}
+                            className="w-24 p-1 border rounded text-right text-sm"
+                        />
+                    </div>
                  </div>
+
                  <div className="border-t border-gray-300 pt-4 mt-2 flex justify-between text-xl font-bold text-gray-800">
                     <span>{t('grandTotal')}</span>
                     <span>{currency} {total.toFixed(2)}</span>

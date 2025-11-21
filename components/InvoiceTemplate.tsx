@@ -1,3 +1,4 @@
+
 import React, { forwardRef } from 'react';
 import { Quote, CompanySettings } from '../types';
 
@@ -85,35 +86,34 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
 
                 <div className="w-1/2 text-right">
                   {/* Darker text for better print visibility */}
-                  <h2 className="text-5xl font-extrabold text-gray-800 mb-4 tracking-widest uppercase">{quote.type}</h2>
+                  <h2 className="text-5xl font-extrabold text-gray-900 mb-4 tracking-widest uppercase">{quote.type}</h2>
                   
                   {/* Quote Metadata Box - REFACTORED FOR HTML2CANVAS STABILITY */}
-                  {/* Removed overflow-hidden, grid, and transparency. Using explicit borders and flex. */}
-                  <div className="inline-block text-left bg-white border-2 border-gray-800 min-w-[260px]">
+                  <div className="inline-block text-left bg-gray-100 border-2 border-gray-900 min-w-[260px]">
                       {/* Row 1 */}
                       <div className="flex border-b border-gray-400">
-                          <div className="w-24 bg-gray-100 p-2 flex items-center">
+                          <div className="w-24 p-2 flex items-center">
                               <span className="text-[10px] font-bold text-black uppercase">Invoice No:</span>
                           </div>
-                          <div className="flex-1 p-2 text-right">
+                          <div className="flex-1 p-2 text-right bg-white">
                               <span className="text-sm font-bold text-black">{quote.number}</span>
                           </div>
                       </div>
                       {/* Row 2 */}
                       <div className="flex border-b border-gray-400">
-                          <div className="w-24 bg-gray-100 p-2 flex items-center">
+                          <div className="w-24 p-2 flex items-center">
                               <span className="text-[10px] font-bold text-black uppercase">Date:</span>
                           </div>
-                          <div className="flex-1 p-2 text-right">
+                          <div className="flex-1 p-2 text-right bg-white">
                               <span className="text-sm text-black">{quote.date}</span>
                           </div>
                       </div>
                       {/* Row 3 */}
                       <div className="flex">
-                          <div className="w-24 bg-gray-100 p-2 flex items-center">
+                          <div className="w-24 p-2 flex items-center">
                               <span className="text-[10px] font-bold text-black uppercase">Expiry:</span>
                           </div>
-                          <div className="flex-1 p-2 text-right">
+                          <div className="flex-1 p-2 text-right bg-white">
                               <span className="text-sm text-black">{quote.validUntil}</span>
                           </div>
                       </div>
@@ -150,11 +150,11 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="bg-gray-800 text-white">
-                            <th className="py-3 px-4 text-left text-xs uppercase font-semibold w-1/2">Description</th>
-                            <th className="py-3 px-4 text-right text-xs uppercase font-semibold w-20">Qty</th>
-                            <th className="py-3 px-4 text-center text-xs uppercase font-semibold w-20">Unit</th>
-                            <th className="py-3 px-4 text-right text-xs uppercase font-semibold w-32">Price</th>
-                            <th className="py-3 px-4 text-right text-xs uppercase font-semibold w-32">Amount</th>
+                            <th className="py-3 px-4 text-left text-xs uppercase font-semibold w-1/2 text-white">Description</th>
+                            <th className="py-3 px-4 text-right text-xs uppercase font-semibold w-20 text-white">Qty</th>
+                            <th className="py-3 px-4 text-center text-xs uppercase font-semibold w-20 text-white">Unit</th>
+                            <th className="py-3 px-4 text-right text-xs uppercase font-semibold w-32 text-white">Price</th>
+                            <th className="py-3 px-4 text-right text-xs uppercase font-semibold w-32 text-white">Amount</th>
                         </tr>
                     </thead>
                     <tbody className="text-sm text-gray-700">
@@ -186,6 +186,12 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                         <div className="flex justify-between py-2 border-b border-gray-200 text-sm text-red-500">
                             <span>Discount ({quote.discountRate}%)</span>
                             <span>- {quote.currency} {quote.discountAmount.toFixed(2)}</span>
+                        </div>
+                    )}
+                    {quote.shipping > 0 && (
+                        <div className="flex justify-between py-2 border-b border-gray-200 text-sm text-gray-600">
+                            <span>Shipping / Freight</span>
+                            <span>{quote.currency} {quote.shipping.toFixed(2)}</span>
                         </div>
                     )}
                     <div className="flex justify-between py-4 items-center">

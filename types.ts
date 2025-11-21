@@ -75,6 +75,7 @@ export interface Quote {
   subtotal: number;
   discountRate: number; // percentage
   discountAmount: number;
+  shipping: number; // Shipping cost
   total: number;
   incoterms: string;
   leadTime: string;
