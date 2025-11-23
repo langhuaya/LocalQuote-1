@@ -9,37 +9,40 @@ import {
   Search, 
   Download, 
   Edit, 
-  Trash2,
-  Globe,
-  Upload,
-  Menu,
-  X,
-  Loader2,
-  Image as ImageIcon,
-  LogOut
+  Trash2, 
+  Globe, 
+  Menu, 
+  X, 
+  Loader2, 
+  Image as ImageIcon, 
+  LogOut,
+  Shield
 } from 'lucide-react';
-import { api, generateId } from './services/api'; // Use new API service
-import { storageService } from './services/storageService'; // Keep for default fallback types if needed
+import { api, generateId } from './services/api';
+import { storageService } from './services/storageService';
 import { Quote, Product, Customer, CompanySettings, Currency } from './types';
 import { QuoteEditor } from './components/QuoteEditor';
 import { InvoiceTemplate } from './components/InvoiceTemplate';
 import { Login } from './components/Login';
+import { UsersManager } from './components/UsersManager';
+import { ProductsManager } from './components/ProductsManager';
 
 // Libraries needed for PDF generation
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-type ViewState = 'dashboard' | 'quotes' | 'products' | 'customers' | 'settings' | 'quote-editor';
+type ViewState = 'dashboard' | 'quotes' | 'products' | 'customers' | 'settings' | 'users' | 'quote-editor';
 type Lang = 'en' | 'zh';
 
 // --- Translations Dictionary ---
 const TRANSLATIONS = {
   en: {
-    dashboard: 'Dashboard',
+    dashboard: 'Dashboard v2.4 (Online)',
     quotes: 'Quotes & Invoices',
     products: 'Product Inventory',
     customers: 'Customers',
     settings: 'System Settings',
+    users: 'Account Management',
     welcome: 'Welcome',
     newQuote: 'Create New Quote',
     search: 'Search...',
@@ -111,13 +114,15 @@ const TRANSLATIONS = {
     generating: 'Generating...',
     exportPdf: 'Export PDF',
     logout: 'Logout',
+    createdBy: 'Created By'
   },
   zh: {
-    dashboard: '仪表盘',
+    dashboard: '仪表盘 v2.4 (在线)',
     quotes: '报价单管理',
     products: '产品库管理',
     customers: '客户管理',
     settings: '系统设置',
+    users: '账号管理',
     welcome: '欢迎使用',
     newQuote: '新建报价单',
     search: '搜索...',
@@ -189,6 +194,7 @@ const TRANSLATIONS = {
     generating: '正在生成...',
     exportPdf: '下载 PDF',
     logout: '退出登录',
+    createdBy: '创建人'
   }
 };
 
@@ -317,31 +323,37 @@ export default function App() {
     setTimeout(async () => {
         if (printRef.current) {
             try {
-                const scale = format === 'pdf' ? 2 : 3;
+                // INCREASED SCALE FOR BETTER QUALITY (from 2 to 4)
+                const scale = format === 'pdf' ? 4 : 3;
 
                 const canvas = await html2canvas(printRef.current, {
                     scale: scale, 
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
-                    windowWidth: 1200,
+                    windowWidth: 794, // Lock width to A4 pixel width
                     scrollY: 0,
                     backgroundColor: '#ffffff'
                 });
 
                 if (format === 'image') {
                     // --- IMAGE EXPORT ---
-                    const imgData = canvas.toDataURL('image/png');
-                    const link = document.createElement('a');
-                    link.href = imgData;
-                    link.download = `${quote.number}.png`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = `${quote.number}.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                        }
+                    }, 'image/png');
 
                 } else {
                     // --- PDF EXPORT ---
-                    const imgData = canvas.toDataURL('image/jpeg', 0.75);
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
                     
                     if (imgData === 'data:,') throw new Error('Empty image data');
 
@@ -422,6 +434,8 @@ export default function App() {
         return <CustomersManager customers={customers} onSave={handleCustomerSave} onDelete={handleDeleteCustomer} t={t} />;
       case 'settings':
         return <SettingsManager settings={settings} onSave={handleSaveSettings} t={t} />;
+      case 'users':
+        return <UsersManager t={t} />;
       case 'dashboard':
       default:
         return <Dashboard quotes={quotes} products={products} customers={customers} onCreateQuote={() => { setEditingQuote(null); navigateTo('quote-editor'); }} t={t} />;
@@ -480,6 +494,7 @@ export default function App() {
               <SidebarItem icon={<Users size={20} />} label={t('customers')} active={currentView === 'customers'} onClick={() => navigateTo('customers')} />
               <div className="pt-8">
                   <SidebarItem icon={<Settings size={20} />} label={t('settings')} active={currentView === 'settings'} onClick={() => navigateTo('settings')} />
+                  <SidebarItem icon={<Shield size={20} />} label={t('users')} active={currentView === 'users'} onClick={() => navigateTo('users')} />
               </div>
           </nav>
           
@@ -579,7 +594,8 @@ const Dashboard = ({ quotes, products, customers, onCreateQuote, t }: any) => {
                              <div key={q.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded border-b border-gray-50 last:border-0">
                                  <div>
                                      <span className="font-bold text-gray-700 block text-sm md:text-base">{q.number}</span>
-                                     <span className="text-xs md:text-sm text-gray-500">{q.customerSnapshot.name}</span>
+                                     <span className="text-xs md:text-sm text-gray-500">{q.customerSnapshot?.name || 'Unknown Customer'}</span>
+                                     {q.createdBy && <span className="text-[10px] text-gray-400 block">By: {q.createdBy}</span>}
                                  </div>
                                  <div className="text-right">
                                      <span className="block font-bold text-sm md:text-base">{q.currency} {q.total.toFixed(2)}</span>
@@ -609,7 +625,7 @@ const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t
     
     const filtered = quotes.filter((q: Quote) => 
         q.number.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        q.customerSnapshot.name.toLowerCase().includes(searchTerm.toLowerCase())
+        (q.customerSnapshot?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -638,6 +654,7 @@ const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('date')}</th>
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('customer')}</th>
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('amount')}</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdBy')}</th>
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('status')}</th>
                                 <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                             </tr>
@@ -647,8 +664,9 @@ const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t
                                 <tr key={q.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="p-4 font-medium text-blue-600">{q.number}</td>
                                     <td className="p-4 text-gray-600 text-sm">{q.date}</td>
-                                    <td className="p-4 text-gray-800 font-medium">{q.customerSnapshot.name}</td>
+                                    <td className="p-4 text-gray-800 font-medium">{q.customerSnapshot?.name || 'Unknown'}</td>
                                     <td className="p-4 font-bold text-gray-700">{q.currency} {q.total.toFixed(2)}</td>
+                                    <td className="p-4 text-xs text-gray-500">{q.createdBy || '-'}</td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 text-xs rounded-full ${
                                             q.status === 'Accepted' ? 'bg-green-100 text-green-700' : 
@@ -684,136 +702,12 @@ const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t
                                 </tr>
                             ))}
                             {filtered.length === 0 && (
-                                <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>
+                                <tr><td colSpan={7} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-    );
-};
-
-const ProductsManager = ({ products, onSave, onDelete, t }: any) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({});
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const filtered = products.filter((p: Product) => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const handleEdit = (p: Product) => {
-        setCurrentProduct(p);
-        setIsEditing(true);
-    };
-
-    const handleNew = () => {
-        setCurrentProduct({ id: generateId(), currency: Currency.USD, unit: 'pcs' });
-        setIsEditing(true);
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if(currentProduct.sku && currentProduct.name) {
-            onSave(currentProduct as Product);
-            setIsEditing(false);
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-             {isEditing ? (
-                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                     <h3 className="font-bold text-lg mb-4">{currentProduct.id ? t('edit') : t('addProduct')}</h3>
-                     <form onSubmit={handleSubmit} className="space-y-4">
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('sku')}</label>
-                                <input required className="w-full p-2 border rounded" value={currentProduct.sku || ''} onChange={e => setCurrentProduct({...currentProduct, sku: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('name')}</label>
-                                <input required className="w-full p-2 border rounded" value={currentProduct.name || ''} onChange={e => setCurrentProduct({...currentProduct, name: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('price')} ({currentProduct.currency})</label>
-                                <input type="number" step="0.01" required className="w-full p-2 border rounded" value={currentProduct.price || ''} onChange={e => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value)})} />
-                            </div>
-                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('cost')}</label>
-                                <input type="number" step="0.01" className="w-full p-2 border rounded" value={currentProduct.cost || ''} onChange={e => setCurrentProduct({...currentProduct, cost: parseFloat(e.target.value)})} />
-                            </div>
-                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('unit')}</label>
-                                <input className="w-full p-2 border rounded" value={currentProduct.unit || ''} onChange={e => setCurrentProduct({...currentProduct, unit: e.target.value})} />
-                            </div>
-                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('currency')}</label>
-                                <select className="w-full p-2 border rounded" value={currentProduct.currency || Currency.USD} onChange={e => setCurrentProduct({...currentProduct, currency: e.target.value as Currency})}>
-                                    {Object.values(Currency).map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-                         </div>
-                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase">{t('desc')}</label>
-                            <textarea className="w-full p-2 border rounded" rows={3} value={currentProduct.description || ''} onChange={e => setCurrentProduct({...currentProduct, description: e.target.value})} />
-                         </div>
-                         <div className="flex justify-end space-x-3">
-                             <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">{t('cancel')}</button>
-                             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700">{t('save')}</button>
-                         </div>
-                     </form>
-                 </div>
-             ) : (
-                <>
-                    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                         <div className="relative w-full md:w-64">
-                            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                            <input 
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg" 
-                                placeholder={t('search')}
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow w-full md:w-auto justify-center">
-                            <Plus size={20} className="mr-2" /> {t('addProduct')}
-                        </button>
-                    </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 text-left">
-                                    <tr>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('sku')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('name')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('price')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('unit')}</th>
-                                        <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {filtered.map((p: Product) => (
-                                        <tr key={p.id} className="hover:bg-gray-50">
-                                            <td className="p-4 font-bold text-gray-700">{p.sku}</td>
-                                            <td className="p-4">{p.name}</td>
-                                            <td className="p-4 font-mono">{p.currency} {p.price.toFixed(2)}</td>
-                                            <td className="p-4 text-gray-500">{p.unit}</td>
-                                            <td className="p-4 text-right">
-                                                <button onClick={() => handleEdit(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded mr-2"><Edit size={18} /></button>
-                                                <button onClick={() => onDelete(p.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18} /></button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filtered.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </>
-             )}
         </div>
     );
 };
@@ -925,6 +819,7 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('contact')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('country')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('email')}</th>
+                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdBy')}</th>
                                         <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                                     </tr>
                                 </thead>
@@ -935,13 +830,14 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                                             <td className="p-4">{c.contactPerson}</td>
                                             <td className="p-4">{c.country}</td>
                                             <td className="p-4 text-gray-500 text-sm">{c.email}</td>
+                                            <td className="p-4 text-gray-500 text-xs">{c.createdBy || '-'}</td>
                                             <td className="p-4 text-right">
                                                 <button onClick={() => handleEdit(c)} className="p-2 text-blue-600 hover:bg-blue-50 rounded mr-2"><Edit size={18} /></button>
                                                 <button onClick={() => onDelete(c.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18} /></button>
                                             </td>
                                         </tr>
                                     ))}
-                                    {filtered.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
+                                    {filtered.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -954,6 +850,15 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
 
 const SettingsManager = ({ settings, onSave, t }: any) => {
     const [formData, setFormData] = useState<CompanySettings>(settings);
+
+    // Sync state when settings prop changes (e.g. after async load)
+    useEffect(() => {
+        if(settings) {
+            setFormData(settings);
+        }
+    }, [settings]);
+
+    if (!formData) return null;
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -979,35 +884,35 @@ const SettingsManager = ({ settings, onSave, t }: any) => {
                         <h4 className="font-bold text-gray-500 text-xs uppercase border-b pb-2">Basic Info</h4>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('company')}</label>
-                            <input name="name" className="w-full p-2 border rounded" value={formData.name} onChange={handleChange} />
+                            <input name="name" className="w-full p-2 border rounded" value={formData.name || ''} onChange={handleChange} />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('address')}</label>
-                            <input name="address" className="w-full p-2 border rounded" value={formData.address} onChange={handleChange} />
+                            <input name="address" className="w-full p-2 border rounded" value={formData.address || ''} onChange={handleChange} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('city')}</label>
-                                <input name="city" className="w-full p-2 border rounded" value={formData.city} onChange={handleChange} />
+                                <input name="city" className="w-full p-2 border rounded" value={formData.city || ''} onChange={handleChange} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('country')}</label>
-                                <input name="country" className="w-full p-2 border rounded" value={formData.country} onChange={handleChange} />
+                                <input name="country" className="w-full p-2 border rounded" value={formData.country || ''} onChange={handleChange} />
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('phone')}</label>
-                                <input name="phone" className="w-full p-2 border rounded" value={formData.phone} onChange={handleChange} />
+                                <input name="phone" className="w-full p-2 border rounded" value={formData.phone || ''} onChange={handleChange} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('email')}</label>
-                                <input name="email" className="w-full p-2 border rounded" value={formData.email} onChange={handleChange} />
+                                <input name="email" className="w-full p-2 border rounded" value={formData.email || ''} onChange={handleChange} />
                             </div>
                         </div>
                          <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('quotePrefix')}</label>
-                            <input name="quotePrefix" className="w-full p-2 border rounded" value={formData.quotePrefix} onChange={handleChange} />
+                            <input name="quotePrefix" className="w-full p-2 border rounded" value={formData.quotePrefix || ''} onChange={handleChange} />
                         </div>
                     </div>
 
@@ -1050,7 +955,7 @@ const SettingsManager = ({ settings, onSave, t }: any) => {
 
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('bankInfo')}</label>
-                            <textarea name="bankInfo" rows={5} className="w-full p-2 border rounded font-mono text-sm" value={formData.bankInfo} onChange={handleChange} />
+                            <textarea name="bankInfo" rows={5} className="w-full p-2 border rounded font-mono text-sm" value={formData.bankInfo || ''} onChange={handleChange} />
                         </div>
                     </div>
                 </div>

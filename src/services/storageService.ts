@@ -1,4 +1,3 @@
-
 import { Quote, Product, Customer, CompanySettings } from '../types';
 
 const KEYS = {
@@ -9,7 +8,6 @@ const KEYS = {
 };
 
 // Generated LH WAVE Logo (Blue Gradient Text SVG)
-// Added width and height explicitly for HTML2Canvas
 const DEFAULT_LOGO = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 100' width='300' height='100'%3E%3Cdefs%3E%3ClinearGradient id='grad1' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' style='stop-color:%2300c6ff;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%230072ff;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x='10' y='70' font-family='Arial, sans-serif' font-weight='bold' font-size='60' fill='url(%23grad1)'%3ELH WAVE%3C/text%3E%3C/svg%3E";
 
 export const storageService = {
@@ -73,5 +71,4 @@ export const storageService = {
   },
 };
 
-// Helper to generate a unique ID
 export const generateId = () => Math.random().toString(36).substring(2, 9);

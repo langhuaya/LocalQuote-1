@@ -1,5 +1,8 @@
-import sqlite3 from 'sqlite3';
+import { createRequire } from 'module';
 import bcrypt from 'bcryptjs';
+
+const require = createRequire(import.meta.url);
+const sqlite3 = require('sqlite3').verbose();
 
 const db = new sqlite3.Database('./database.sqlite', (err) => {
   if (err) {

@@ -1,8 +1,8 @@
-import { Quote, Product, Customer, CompanySettings } from '../types';
+import { Quote, Product, Customer, CompanySettings, User } from '../types';
 
 // In development (Vite), we use the proxy or full URL. 
 // In production (served by Express), relative path works.
-const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
+const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -22,6 +22,26 @@ export const api = {
     });
     if (!res.ok) throw new Error('Login failed');
     return res.json();
+  },
+
+  // Users
+  getUsers: async (): Promise<User[]> => {
+    const res = await fetch(`${API_URL}/users`, { headers: getHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+  },
+  createUser: async (user: Partial<User> & { password: string }) => {
+    const res = await fetch(`${API_URL}/users`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(user)
+    });
+    if (!res.ok) throw new Error('Failed to create user');
+    return res.json();
+  },
+  deleteUser: async (id: number) => {
+    const res = await fetch(`${API_URL}/users/${id}`, { method: 'DELETE', headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to delete user');
   },
 
   // Products
