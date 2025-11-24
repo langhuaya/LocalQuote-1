@@ -31,6 +31,17 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Helper: Get Local Time String (YYYY-MM-DD HH:mm)
+const getLocalTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hour = String(now.getHours()).padStart(2, '0');
+  const minute = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+};
+
 // --- Auth & User Management Routes ---
 
 app.post('/api/login', (req, res) => {
@@ -80,14 +91,26 @@ app.post('/api/users', authenticateToken, (req, res) => {
 
 // Delete user
 app.delete('/api/users/:id', authenticateToken, (req, res) => {
-  // Prevent deleting self (simple check, assuming ID matches token)
-  if (req.user.id === parseInt(req.params.id)) {
-     return res.status(400).json({ error: "Cannot delete your own account" });
-  }
+  const userIdToDelete = parseInt(req.params.id);
 
-  db.run("DELETE FROM users WHERE id = ?", [req.params.id], (err) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
+  // Check if trying to delete 'admin'
+  db.get("SELECT username FROM users WHERE id = ?", [userIdToDelete], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: "User not found" });
+
+      if (row.username === 'admin') {
+          return res.status(403).json({ error: "Cannot delete the default admin account." });
+      }
+
+      // Prevent deleting self
+      if (req.user.id === userIdToDelete) {
+         return res.status(400).json({ error: "Cannot delete your own account" });
+      }
+
+      db.run("DELETE FROM users WHERE id = ?", [userIdToDelete], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+      });
   });
 });
 
@@ -95,7 +118,8 @@ app.delete('/api/users/:id', authenticateToken, (req, res) => {
 // --- Generic CRUD Helpers ---
 
 const getAll = (table, res) => {
-  db.all(`SELECT data FROM ${table}`, [], (err, rows) => {
+  // ORDER BY rowid DESC to show newest items first (Last In First Out)
+  db.all(`SELECT data FROM ${table} ORDER BY rowid DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     try {
       const items = rows.map(row => JSON.parse(row.data));
@@ -116,27 +140,31 @@ const deleteOne = (table, id, res) => {
 
 // --- Specialized Save Logic ---
 
-// Save Generic (Quotes, Customers) with Ownership
+// Save Generic (Quotes, Customers, Brands) with Ownership
 const saveWithOwnership = (table, req, res) => {
   const id = req.body.id;
   const username = req.user.username;
   
-  // Fetch existing to preserve 'createdBy'
+  // Fetch existing to preserve 'createdBy' and 'createdAt'
   db.get(`SELECT data FROM ${table} WHERE id = ?`, [id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     
     let finalData = { ...req.body };
-    const now = new Date().toISOString().split('T')[0]; // Simple date YYYY-MM-DD
+    const now = getLocalTime(); // Precision: YYYY-MM-DD HH:mm
 
     if (row) {
        // Update existing
        const existing = JSON.parse(row.data);
-       finalData.createdBy = existing.createdBy || username; // Preserve creator
+       finalData.createdBy = existing.createdBy || username; 
+       finalData.createdAt = existing.createdAt || now; // Preserve creation time
        finalData.updatedBy = username;
+       finalData.updatedAt = now;
     } else {
        // Create new
        finalData.createdBy = username;
+       finalData.createdAt = now;
        finalData.updatedBy = username;
+       finalData.updatedAt = now;
     }
 
     const dataStr = JSON.stringify(finalData);
@@ -157,11 +185,13 @@ app.post('/api/products', authenticateToken, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     
     let finalData = { ...newProduct };
-    const now = new Date().toISOString().split('T')[0];
+    const now = getLocalTime(); // Precision: YYYY-MM-DD HH:mm
+    const simpleDate = now.split(' ')[0]; // YYYY-MM-DD for price history
 
     if (row) {
        const existing = JSON.parse(row.data);
        finalData.createdBy = existing.createdBy || username;
+       finalData.createdAt = existing.createdAt || now;
        finalData.updatedBy = username;
        finalData.updatedAt = now;
        finalData.priceHistory = existing.priceHistory || [];
@@ -173,7 +203,7 @@ app.post('/api/products', authenticateToken, (req, res) => {
 
        if (priceChanged || costChanged || supplierChanged) {
           finalData.priceHistory.push({
-             date: now,
+             date: simpleDate,
              price: parseFloat(existing.price), // Store the OLD price/cost
              cost: parseFloat(existing.cost || 0),
              supplier: existing.supplierName || '',
@@ -182,6 +212,7 @@ app.post('/api/products', authenticateToken, (req, res) => {
        }
     } else {
        finalData.createdBy = username;
+       finalData.createdAt = now;
        finalData.updatedBy = username;
        finalData.updatedAt = now;
        finalData.priceHistory = [];
@@ -207,6 +238,11 @@ app.delete('/api/products/:id', authenticateToken, (req, res) => deleteOne('prod
 app.get('/api/customers', authenticateToken, (req, res) => getAll('customers', res));
 app.post('/api/customers', authenticateToken, (req, res) => saveWithOwnership('customers', req, res));
 app.delete('/api/customers/:id', authenticateToken, (req, res) => deleteOne('customers', req.params.id, res));
+
+// Brands
+app.get('/api/brands', authenticateToken, (req, res) => getAll('brands', res));
+app.post('/api/brands', authenticateToken, (req, res) => saveWithOwnership('brands', req, res));
+app.delete('/api/brands/:id', authenticateToken, (req, res) => deleteOne('brands', req.params.id, res));
 
 // Quotes
 app.get('/api/quotes', authenticateToken, (req, res) => getAll('quotes', res));

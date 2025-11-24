@@ -1,7 +1,9 @@
+
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Quote, QuoteType, Currency, Customer, Product, QuoteItem, CompanySettings } from '../types';
-import { Plus, Trash2, Save, ArrowLeft, Eye, X, Search, Image as ImageIcon, ChevronDown, Check } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, Eye, X, Search, Image as ImageIcon, ChevronDown, Check, Download } from 'lucide-react';
 import { generateId } from '../services/api';
 import { InvoiceTemplate } from './InvoiceTemplate';
 
@@ -63,12 +65,9 @@ const ProductSearch = ({
     
     if(isOpen) {
         document.addEventListener("mousedown", handleClickOutside);
-        // Also close on scroll to prevent detached UI
-        window.addEventListener("scroll", () => setIsOpen(false), true);
     }
     return () => {
         document.removeEventListener("mousedown", handleClickOutside);
-        window.removeEventListener("scroll", () => setIsOpen(false), true);
     };
   }, [isOpen]);
 
@@ -79,7 +78,7 @@ const ProductSearch = ({
     return products.filter(p => 
       p.sku.toLowerCase().includes(lower) || 
       p.name.toLowerCase().includes(lower) ||
-      (p.supplierName || '').toLowerCase().includes(lower)
+      (p.brand || '').toLowerCase().includes(lower)
     );
   }, [products, searchTerm]);
 
@@ -120,7 +119,7 @@ const ProductSearch = ({
              <input 
                 autoFocus
                 type="text"
-                placeholder="Type SKU, Name, or Supplier..." 
+                placeholder="Type SKU, Name, or Brand..." 
                 className="w-full p-2 bg-gray-50 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -145,7 +144,7 @@ const ProductSearch = ({
                             {p.id === value && <Check size={14} className="text-blue-600" />}
                         </div>
                         <div className="text-sm text-gray-600 truncate">{p.name}</div>
-                        {p.supplierName && <div className="text-[10px] text-gray-400 truncate">Sup: {p.supplierName}</div>}
+                        {p.brand && <div className="text-[10px] text-gray-400 truncate">Brand: {p.brand}</div>}
                     </div>
                     <div className="text-right pl-4">
                         <div className="text-xs font-bold text-gray-700">{p.currency} {p.price.toFixed(2)}</div>
@@ -162,6 +161,118 @@ const ProductSearch = ({
     </div>
   );
 };
+
+// --- Sub-component: Searchable Customer Dropdown (with Portal) ---
+const CustomerSearch = ({ 
+  customers, 
+  value, 
+  onChange,
+  placeholder
+}: { 
+  customers: Customer[], 
+  value: string, 
+  onChange: (customerId: string) => void,
+  placeholder: string
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dropdownStyle, setDropdownStyle] = useState({});
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const selectedCustomer = customers.find(c => c.id === value);
+
+  const toggleOpen = () => {
+     if (!isOpen && wrapperRef.current) {
+        const rect = wrapperRef.current.getBoundingClientRect();
+        setDropdownStyle({
+            position: 'fixed',
+            top: rect.bottom, 
+            left: rect.left,
+            width: rect.width, // Match wrapper width
+            zIndex: 9999
+        });
+    }
+    setIsOpen(!isOpen);
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as HTMLElement;
+      // Note: We don't have an ID for this dropdown portal yet, but logic is same
+      if (wrapperRef.current && !wrapperRef.current.contains(target)) {
+         // Check if click is inside the portal (if we had a ref to it, but here simplistic check)
+         const dropdown = document.getElementById('customer-search-dropdown');
+         if (dropdown && !dropdown.contains(target)) {
+            setIsOpen(false);
+         }
+      }
+    }
+    
+    if(isOpen) {
+        document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const filteredCustomers = customers.filter(c => 
+     (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+     (c.contactPerson || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+       <div 
+        className={`w-full p-2 border rounded cursor-pointer flex justify-between items-center ${selectedCustomer ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}
+        onClick={toggleOpen}
+       >
+          <span className={`truncate ${!selectedCustomer && 'text-gray-500'}`}>
+             {selectedCustomer ? `${selectedCustomer.name}` : placeholder}
+          </span>
+          <ChevronDown size={16} className="text-gray-400" />
+       </div>
+
+       {isOpen && createPortal(
+          <div id="customer-search-dropdown" style={dropdownStyle} className="bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto flex flex-col fixed">
+             <div className="p-2 sticky top-0 bg-white border-b z-10">
+                <div className="relative">
+                    <Search className="absolute left-2 top-2.5 text-gray-400" size={14} />
+                    <input 
+                        autoFocus
+                        className="w-full pl-8 p-2 border rounded text-sm bg-gray-50 focus:outline-none focus:border-blue-500"
+                        placeholder="Search Company or Contact..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        onClick={e => e.stopPropagation()} 
+                    />
+                </div>
+             </div>
+             <div className="flex-1 overflow-y-auto">
+                 {filteredCustomers.length === 0 ? (
+                     <div className="p-3 text-sm text-gray-500 text-center">No customers found</div>
+                 ) : (
+                     filteredCustomers.map(c => (
+                         <div 
+                            key={c.id} 
+                            className={`p-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 last:border-0 ${c.id === value ? 'bg-blue-50' : ''}`}
+                            onClick={() => { onChange(c.id); setIsOpen(false); setSearchTerm(''); }}
+                         >
+                            <div className="font-bold text-gray-800">{c.name}</div>
+                            <div className="text-xs text-gray-500 flex justify-between mt-1">
+                                <span>{c.contactPerson}</span>
+                                <span>{c.country}</span>
+                            </div>
+                         </div>
+                     ))
+                 )}
+             </div>
+          </div>,
+          document.body
+       )}
+    </div>
+  )
+}
 
 
 export const QuoteEditor: React.FC<QuoteEditorProps> = ({
@@ -251,6 +362,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
         quantity: 1,
         price: 0,
         amount: 0,
+        brand: '',
       }]);
     }
   }, [initialQuote, settings.quotePrefix]);
@@ -278,6 +390,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
         quantity: 1,
         price: 0,
         amount: 0,
+        brand: '',
       },
     ]);
   };
@@ -299,6 +412,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                 updated.description = prod.description;
                 updated.price = prod.price;
                 updated.unit = prod.unit || 'pcs';
+                updated.brand = prod.brand || '';
              }
           }
           updated.amount = updated.price * updated.quantity;
@@ -468,10 +582,12 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                <h3 className="font-semibold text-gray-700 mb-4">{t('billTo')}</h3>
                 <div>
                     <label className="block text-xs font-medium text-gray-500 uppercase mb-1">{t('selectCustomer')}</label>
-                    <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="w-full p-2 border rounded">
-                        <option value="">{t('selectCustomer')}</option>
-                        {customers.map(c => (<option key={c.id} value={c.id}>{c.name} ({c.country})</option>))}
-                    </select>
+                    <CustomerSearch 
+                        customers={customers}
+                        value={customerId}
+                        onChange={setCustomerId}
+                        placeholder={t('selectCustomer')}
+                    />
                 </div>
                 {customerId && (
                     <div className="mt-4 p-3 bg-blue-50 text-sm text-blue-800 rounded">
@@ -527,7 +643,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                     <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/4">Select Product / SKU</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/4">{t('name')}</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/4">{t('desc')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/6">{t('brand')}</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-20">{t('qty')}</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-20">{t('unit')}</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-24">{t('price')}</th>
@@ -547,8 +663,8 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                           />
                           <input className="w-full p-1.5 border rounded text-sm text-gray-600 placeholder-gray-400 mt-1" placeholder="SKU Override" value={item.sku} onChange={(e) => handleItemChange(item.id, 'sku', e.target.value)} />
                         </td>
-                        <td className="px-4 py-2 align-top"><input className="w-full p-2 border rounded text-sm text-gray-800 font-medium" placeholder="Item Name" value={item.name} onChange={(e) => handleItemChange(item.id, 'name', e.target.value)} /></td>
-                        <td className="px-4 py-2 align-top"><textarea className="w-full p-2 border rounded text-sm" rows={3} value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} /></td>
+                        <td className="px-4 py-2 align-top"><textarea className="w-full p-2 border rounded text-sm text-gray-800 font-medium" rows={2} placeholder="Item Name / Desc" value={item.name} onChange={(e) => handleItemChange(item.id, 'name', e.target.value)} /></td>
+                        <td className="px-4 py-2 align-top"><input className="w-full p-2 border rounded text-sm" value={item.brand || ''} onChange={e => handleItemChange(item.id, 'brand', e.target.value)} /></td>
                         <td className="px-4 py-2 align-top"><input type="number" min="1" className="w-full p-2 border rounded text-sm text-right font-mono" value={item.quantity} onChange={e => handleItemChange(item.id, 'quantity', parseFloat(e.target.value))} /></td>
                         <td className="px-4 py-2 align-top"><input className="w-full p-2 border rounded text-sm text-center" value={item.unit || 'pcs'} onChange={e => handleItemChange(item.id, 'unit', e.target.value)} /></td>
                         <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.01" className="w-full p-2 border rounded text-sm text-right font-mono" value={item.price} onChange={e => handleItemChange(item.id, 'price', parseFloat(e.target.value))} /></td>
@@ -598,11 +714,31 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col overflow-hidden">
                 <div className="p-4 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
-                    <h3 className="font-bold text-lg text-gray-800">Preview PDF</h3>
-                    <button onClick={() => setShowPreview(false)} className="text-gray-500 hover:text-red-600 transition-colors"><X size={24} /></button>
+                    <h3 className="font-bold text-lg text-gray-800">{t('preview')}</h3>
+                    <div className="flex items-center space-x-3">
+                         <button
+                          onClick={() => onExport(getPreviewData(), 'image')}
+                          className="flex items-center justify-center bg-orange-100 text-orange-700 px-3 py-1.5 rounded hover:bg-orange-200 transition-colors text-sm font-medium"
+                        >
+                          <ImageIcon size={16} className="mr-2" /> {t('exportImage')}
+                        </button>
+                        <button
+                          onClick={() => onExport(getPreviewData(), 'pdf')}
+                          className="flex items-center justify-center bg-green-100 text-green-700 px-3 py-1.5 rounded hover:bg-green-200 transition-colors text-sm font-medium"
+                        >
+                          <Download size={16} className="mr-2" /> {t('exportPdf')}
+                        </button>
+                        <div className="h-6 w-px bg-gray-300 mx-2"></div>
+                        <button onClick={() => setShowPreview(false)} className="text-gray-500 hover:text-red-600 transition-colors">
+                            <X size={24} />
+                        </button>
+                    </div>
                 </div>
-                <div className="flex-1 bg-gray-200 overflow-y-auto p-8">
-                     <InvoiceTemplate quote={getPreviewData()} settings={settings} mode="preview" />
+                {/* Updated: Added overflow-auto to handle the fixed-width A4 invoice on mobile */}
+                <div className="flex-1 bg-gray-200 overflow-auto p-2 md:p-8 relative">
+                     <div className="min-w-fit mx-auto">
+                        <InvoiceTemplate quote={getPreviewData()} settings={settings} mode="preview" />
+                     </div>
                 </div>
             </div>
         </div>

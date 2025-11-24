@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -18,22 +19,24 @@ import {
   Image as ImageIcon, 
   LogOut,
   Shield,
-  Coins
+  Coins,
+  Tag
 } from 'lucide-react';
 import { api, generateId } from './services/api';
 import { storageService } from './services/storageService';
-import { Quote, Product, Customer, CompanySettings, Currency } from './types';
+import { Quote, Product, Customer, CompanySettings, Currency, Brand } from './types';
 import { QuoteEditor } from './components/QuoteEditor';
 import { InvoiceTemplate } from './components/InvoiceTemplate';
 import { Login } from './components/Login';
 import { UsersManager } from './components/UsersManager';
 import { ProductsManager } from './components/ProductsManager';
+import { BrandsManager } from './components/BrandsManager';
 
 // Libraries needed for PDF generation
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-type ViewState = 'dashboard' | 'quotes' | 'products' | 'customers' | 'settings' | 'users' | 'quote-editor';
+type ViewState = 'dashboard' | 'quotes' | 'products' | 'customers' | 'brands' | 'settings' | 'users' | 'quote-editor';
 type Lang = 'en' | 'zh';
 
 // --- Translations Dictionary ---
@@ -43,6 +46,7 @@ const TRANSLATIONS = {
     quotes: 'Quotes & Invoices',
     products: 'Product Inventory',
     customers: 'Customers',
+    brands: 'Brand Management',
     settings: 'System Settings',
     users: 'Account Management',
     welcome: 'Welcome',
@@ -64,6 +68,8 @@ const TRANSLATIONS = {
     customer: 'Customer',
     sku: 'SKU / Model',
     name: 'Product Name',
+    brand: 'Brand',
+    note: 'Note',
     price: 'Sales Price',
     cost: 'Cost',
     supplier: 'Supplier',
@@ -111,7 +117,7 @@ const TRANSLATIONS = {
     paymentTerms: 'Payment Terms',
     addItem: 'Add Line Item',
     qty: 'Qty',
-    selectCustomer: '-- Select Customer --',
+    selectCustomer: 'Select from Customer Manager',
     customItem: 'Custom Item',
     uploadImage: 'Upload Image',
     preview: 'Preview PDF',
@@ -121,6 +127,7 @@ const TRANSLATIONS = {
     exportPdf: 'Export PDF',
     logout: 'Logout',
     createdBy: 'Created By',
+    createdAt: 'Created At',
     sourcingInfo: 'Sourcing & Cost Info',
     salesInfo: 'Sales Information',
     addSupplier: 'Add Supplier',
@@ -139,6 +146,7 @@ const TRANSLATIONS = {
     quotes: '报价单管理',
     products: '产品库管理',
     customers: '客户管理',
+    brands: '品牌管理',
     settings: '系统设置',
     users: '账号管理',
     welcome: '欢迎使用',
@@ -160,6 +168,8 @@ const TRANSLATIONS = {
     customer: '客户',
     sku: 'SKU / 型号',
     name: '产品名称',
+    brand: '品牌',
+    note: '备注',
     price: '销售单价',
     cost: '成本价',
     supplier: '供应商',
@@ -167,7 +177,7 @@ const TRANSLATIONS = {
     supplierRef: '货号/链接',
     margin: '利润率',
     desc: '详细描述',
-    unit: '单位 (个/套)',
+    unit: '单位',
     contact: '联系人',
     company: '公司名称 (英文)',
     country: '国家',
@@ -207,7 +217,7 @@ const TRANSLATIONS = {
     paymentTerms: '付款方式',
     addItem: '添加一行产品',
     qty: '数量',
-    selectCustomer: '-- 从库中选择客户 --',
+    selectCustomer: '从客户管理选择客户',
     customItem: '手动输入产品',
     uploadImage: '点击上传图片',
     preview: '预览报价单',
@@ -217,6 +227,7 @@ const TRANSLATIONS = {
     exportPdf: '下载 PDF',
     logout: '退出登录',
     createdBy: '创建人',
+    createdAt: '创建时间',
     sourcingInfo: '供应链与成本信息',
     salesInfo: '销售信息',
     addSupplier: '添加供应商',
@@ -241,6 +252,7 @@ export default function App() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(storageService.getSettings()); // Fallback to default
   
   // --- UI State ---
@@ -262,15 +274,26 @@ export default function App() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [q, p, c, s] = await Promise.all([
+      const [q, p, c, b, s] = await Promise.all([
         api.getQuotes(),
         api.getProducts(),
         api.getCustomers(),
+        api.getBrands(),
         api.getSettings()
       ]);
-      setQuotes(q);
+      
+      // Sort quotes by Date Desc, then Number Desc (Newest first)
+      const sortedQuotes = q.sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          if (dateA !== dateB) return dateB - dateA; // Newest date first
+          return b.number.localeCompare(a.number); // Highest number first
+      });
+
+      setQuotes(sortedQuotes);
       setProducts(p);
       setCustomers(c);
+      setBrands(b);
       if (s) setSettings(s);
     } catch (error) {
       console.error("Failed to load data", error);
@@ -340,6 +363,18 @@ export default function App() {
         await loadData();
       }
   };
+
+  const handleBrandSave = async (brand: Brand) => {
+    await api.saveBrand(brand);
+    await loadData();
+  };
+
+  const handleDeleteBrand = async (id: string) => {
+    if(confirm(t('confirmDelete'))) {
+      await api.deleteBrand(id);
+      await loadData();
+    }
+  }
 
   const handleSaveSettings = async (newSettings: CompanySettings) => {
     await api.saveSettings(newSettings);
@@ -465,9 +500,11 @@ export default function App() {
             t={t}
         />;
       case 'products':
-        return <ProductsManager products={products} settings={settings} onSave={handleProductSave} onDelete={handleDeleteProduct} t={t} />;
+        return <ProductsManager products={products} brands={brands} settings={settings} onSave={handleProductSave} onDelete={handleDeleteProduct} t={t} />;
       case 'customers':
         return <CustomersManager customers={customers} onSave={handleCustomerSave} onDelete={handleDeleteCustomer} t={t} />;
+      case 'brands':
+        return <BrandsManager brands={brands} onSave={handleBrandSave} onDelete={handleDeleteBrand} t={t} />;
       case 'settings':
         return <SettingsManager settings={settings} onSave={handleSaveSettings} t={t} />;
       case 'users':
@@ -528,6 +565,7 @@ export default function App() {
               <SidebarItem icon={<FileText size={20} />} label={t('quotes')} active={currentView === 'quotes' || currentView === 'quote-editor'} onClick={() => navigateTo('quotes')} />
               <SidebarItem icon={<Package size={20} />} label={t('products')} active={currentView === 'products'} onClick={() => navigateTo('products')} />
               <SidebarItem icon={<Users size={20} />} label={t('customers')} active={currentView === 'customers'} onClick={() => navigateTo('customers')} />
+              <SidebarItem icon={<Tag size={20} />} label={t('brands')} active={currentView === 'brands'} onClick={() => navigateTo('brands')} />
               <div className="pt-8">
                   <SidebarItem icon={<Settings size={20} />} label={t('settings')} active={currentView === 'settings'} onClick={() => navigateTo('settings')} />
                   <SidebarItem icon={<Shield size={20} />} label={t('users')} active={currentView === 'users'} onClick={() => navigateTo('users')} />
@@ -691,6 +729,7 @@ const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('customer')}</th>
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('amount')}</th>
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdBy')}</th>
+                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdAt')}</th>
                                 <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('status')}</th>
                                 <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                             </tr>
@@ -703,6 +742,7 @@ const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t
                                     <td className="p-4 text-gray-800 font-medium">{q.customerSnapshot?.name || 'Unknown'}</td>
                                     <td className="p-4 font-bold text-gray-700">{q.currency} {q.total.toFixed(2)}</td>
                                     <td className="p-4 text-xs text-gray-500">{q.createdBy || '-'}</td>
+                                    <td className="p-4 text-xs text-gray-500 whitespace-nowrap">{q.createdAt || '-'}</td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 text-xs rounded-full ${
                                             q.status === 'Accepted' ? 'bg-green-100 text-green-700' : 
@@ -738,7 +778,7 @@ const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t
                                 </tr>
                             ))}
                             {filtered.length === 0 && (
-                                <tr><td colSpan={7} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>
+                                <tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -859,6 +899,7 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('country')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('email')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdBy')}</th>
+                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdAt')}</th>
                                         <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                                     </tr>
                                 </thead>
@@ -870,13 +911,14 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                                             <td className="p-4">{c.country}</td>
                                             <td className="p-4 text-gray-500 text-sm">{c.email}</td>
                                             <td className="p-4 text-gray-500 text-xs">{c.createdBy || '-'}</td>
+                                            <td className="p-4 text-gray-500 text-xs whitespace-nowrap">{c.createdAt || '-'}</td>
                                             <td className="p-4 text-right">
                                                 <button onClick={() => handleEdit(c)} className="p-2 text-blue-600 hover:bg-blue-50 rounded mr-2"><Edit size={18} /></button>
                                                 <button onClick={() => onDelete(c.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18} /></button>
                                             </td>
                                         </tr>
                                     ))}
-                                    {filtered.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
+                                    {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
                                 </tbody>
                             </table>
                         </div>

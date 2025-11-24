@@ -164,13 +164,15 @@ export const UsersManager: React.FC<UsersManagerProps> = ({ t }) => {
                                    {user.phone && <div><span className="font-bold text-xs">P:</span> {user.phone}</div>}
                                </td>
                                <td className="p-3 text-right">
-                                   <button 
-                                      onClick={() => handleDelete(user.id)}
-                                      className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors"
-                                      title="Delete User"
-                                    >
-                                       <Trash2 size={16} />
-                                   </button>
+                                   {user.username !== 'admin' && (
+                                       <button 
+                                          onClick={() => handleDelete(user.id)}
+                                          className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors"
+                                          title="Delete User"
+                                        >
+                                           <Trash2 size={16} />
+                                       </button>
+                                   )}
                                </td>
                            </tr>
                        ))}

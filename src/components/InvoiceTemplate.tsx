@@ -1,3 +1,5 @@
+
+
 import React, { forwardRef } from 'react';
 import { Quote, CompanySettings } from '../types';
 
@@ -11,7 +13,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
   const { customerSnapshot: customer, items } = quote;
 
   const baseStyle: React.CSSProperties = {
-    width: '794px',
+    width: '794px', // Standard A4 width in pixels (at ~96 DPI)
     backgroundColor: 'white',
     position: 'relative',
     boxSizing: 'border-box',
@@ -24,13 +26,16 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
   if (mode === 'preview') {
     containerStyle = {
       ...baseStyle,
-      width: '100%',
-      maxWidth: '210mm',
-      minHeight: '297mm',
+      // CRITICAL FIX: Do NOT use width: '100%' here. 
+      // It causes the A4 layout to squash on mobile screens.
+      // We enforce the fixed 794px width and let the parent container scroll.
+      width: '794px', 
+      minWidth: '794px',
+      minHeight: '1123px', // A4 height
       margin: '0 auto',
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
     };
-    wrapperClass = "flex justify-center p-8 min-h-full";
+    wrapperClass = "flex justify-center min-h-full";
   } else if (mode === 'generate') {
     containerStyle = {
       ...baseStyle,
@@ -46,7 +51,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
   return (
     <div className={wrapperClass}>
        <div ref={ref} style={containerStyle} className="text-gray-900 bg-white flex flex-col">
-          {/* Main content padding reduced from p-12 to p-8 (approx 2cm) */}
+          {/* Content Padding */}
           <div className="p-8 flex flex-col flex-grow relative">
             
             {/* Header Section */}
@@ -88,7 +93,6 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 <div className="w-1/2 text-right">
                   <h2 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-widest uppercase">{quote.type}</h2>
                   
-                  {/* Changed from Flex to Table for consistent PDF borders */}
                   <table className="ml-auto border-collapse border border-gray-900 min-w-[220px]">
                     <tbody>
                         <tr>
@@ -148,11 +152,12 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="bg-gray-800 text-white">
-                            <th className="py-2 px-3 text-left text-[10px] uppercase font-semibold w-[45%] text-white">Description</th>
+                            <th className="py-2 px-3 text-left text-[10px] uppercase font-semibold w-[40%] text-white">Description</th>
+                            <th className="py-2 px-3 text-left text-[10px] uppercase font-semibold w-[15%] text-white">Brand</th>
                             <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[10%] text-white">Qty</th>
                             <th className="py-2 px-3 text-center text-[10px] uppercase font-semibold w-[10%] text-white">Unit</th>
-                            <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[15%] text-white">Price</th>
-                            <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[20%] text-white">Amount</th>
+                            <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[10%] text-white">Price</th>
+                            <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[15%] text-white">Amount</th>
                         </tr>
                     </thead>
                     <tbody className="text-xs text-gray-700">
@@ -161,8 +166,9 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                                 <td className="py-2 px-3 align-top">
                                     <p className="font-bold text-gray-900 text-xs">{item.sku}</p>
                                     <p className="text-gray-800">{item.name}</p>
-                                    {item.description && <p className="text-[10px] text-gray-500 mt-0.5 whitespace-pre-wrap leading-tight">{item.description}</p>}
+                                    {/* Description text removed as requested */}
                                 </td>
+                                <td className="py-2 px-3 text-left align-top text-gray-600 font-medium">{item.brand || '-'}</td>
                                 <td className="py-2 px-3 text-right align-top font-medium">{item.quantity}</td>
                                 <td className="py-2 px-3 text-center align-top text-[10px] uppercase text-gray-500">{item.unit || 'pcs'}</td>
                                 <td className="py-2 px-3 text-right align-top">{item.price.toFixed(2)}</td>

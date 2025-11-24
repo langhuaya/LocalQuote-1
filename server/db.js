@@ -48,6 +48,12 @@ function initDb() {
       data TEXT
     )`);
 
+    // Brands Table
+    db.run(`CREATE TABLE IF NOT EXISTS brands (
+      id TEXT PRIMARY KEY,
+      data TEXT
+    )`);
+
     // Customers Table
     db.run(`CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,

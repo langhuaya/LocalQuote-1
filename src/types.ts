@@ -1,4 +1,5 @@
 
+
 export enum QuoteType {
   PROFORMA = 'Proforma Invoice',
   COMMERCIAL = 'Commercial Invoice',
@@ -31,6 +32,18 @@ export interface PriceHistoryItem {
   updatedBy: string;
 }
 
+export interface Brand {
+  id: string;
+  name: string;
+  logoDataUrl?: string;
+  description?: string;
+  suppliers?: SupplierInfo[];
+  
+  createdBy?: string;
+  createdAt?: string;
+  updatedBy?: string;
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -39,6 +52,8 @@ export interface Product {
   price: number;
   currency: Currency;
   unit: string;
+  brand?: string; // Brand Name
+  note?: string;  // Internal Note
   
   // Sourcing Info (Computed from Default Supplier or Legacy)
   cost?: number; // Internal cost (Primary Supplier Price)
@@ -50,6 +65,7 @@ export interface Product {
 
   // Ownership & History
   createdBy?: string;
+  createdAt?: string; // YYYY-MM-DD HH:mm
   updatedBy?: string;
   updatedAt?: string;
   priceHistory?: PriceHistoryItem[];
@@ -70,6 +86,7 @@ export interface Customer {
 
   // Ownership
   createdBy?: string;
+  createdAt?: string; // YYYY-MM-DD HH:mm
   updatedBy?: string;
 }
 
@@ -98,6 +115,7 @@ export interface QuoteItem {
   quantity: number;
   price: number;
   amount: number;
+  brand?: string; // Brand Name copied from product
 }
 
 export interface Quote {
@@ -131,6 +149,7 @@ export interface Quote {
 
   // Ownership
   createdBy?: string;
+  createdAt?: string; // YYYY-MM-DD HH:mm
   updatedBy?: string;
 }
 

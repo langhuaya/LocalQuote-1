@@ -1,18 +1,32 @@
 
+
 import React, { useState } from 'react';
-import { Product, Currency, SupplierInfo, CompanySettings } from '../types';
-import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, ExternalLink, Star, Check, RefreshCw } from 'lucide-react';
+import { Product, Currency, SupplierInfo, CompanySettings, Brand } from '../types';
+import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, ExternalLink, Star, Check, RefreshCw, FileText } from 'lucide-react';
 import { generateId } from '../services/api';
 
 interface ProductsManagerProps {
     products: Product[];
+    brands?: Brand[]; // Optional to avoid breaking legacy usage
     settings: CompanySettings;
     onSave: (product: Product) => void;
     onDelete: (id: string) => void;
     t: (key: string) => string;
 }
 
-export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, settings, onSave, onDelete, t }) => {
+const PREDEFINED_UNITS = [
+  'pcs (个)', 
+  'set (套)', 
+  'unit (台)', 
+  'box (盒)', 
+  'kg (公斤)', 
+  'm (米)',
+  'pair (双)',
+  'roll (卷)',
+  'pack (包)'
+];
+
+export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, brands = [], settings, onSave, onDelete, t }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({});
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,7 +38,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
     const filtered = products.filter((p: Product) => 
         (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
         (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.supplierName || '').toLowerCase().includes(searchTerm.toLowerCase())
+        (p.supplierName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.brand || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const handleEdit = (p: Product) => {
@@ -49,7 +64,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
 
     const handleNew = () => {
         setEditingSuppliers([]);
-        setCurrentProduct({ id: generateId(), currency: Currency.USD, unit: 'pcs', price: 0 });
+        setCurrentProduct({ id: generateId(), currency: Currency.USD, unit: 'pcs (个)', price: 0 });
         setIsEditing(true);
     };
 
@@ -240,8 +255,32 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('unit')}</label>
-                                        <input className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" value={currentProduct.unit || ''} onChange={e => setCurrentProduct({...currentProduct, unit: e.target.value})} />
+                                        <input 
+                                            list="units" 
+                                            className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                                            value={currentProduct.unit || ''} 
+                                            onChange={e => setCurrentProduct({...currentProduct, unit: e.target.value})} 
+                                            placeholder="Select or type..."
+                                        />
+                                        <datalist id="units">
+                                            {PREDEFINED_UNITS.map(u => <option key={u} value={u} />)}
+                                        </datalist>
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('brand')}</label>
+                                    <input 
+                                        list="brand-list"
+                                        className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                                        value={currentProduct.brand || ''} 
+                                        onChange={e => setCurrentProduct({...currentProduct, brand: e.target.value})} 
+                                        placeholder="Select or type brand..."
+                                    />
+                                    <datalist id="brand-list">
+                                        {brands.map(b => (
+                                            <option key={b.id} value={b.name} />
+                                        ))}
+                                    </datalist>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('name')}</label>
@@ -265,6 +304,10 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('desc')}</label>
                                     <textarea className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" rows={3} value={currentProduct.description || ''} onChange={e => setCurrentProduct({...currentProduct, description: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('note')}</label>
+                                    <textarea className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none bg-yellow-50" rows={2} value={currentProduct.note || ''} onChange={e => setCurrentProduct({...currentProduct, note: e.target.value})} placeholder="Internal remarks..." />
                                 </div>
                             </div>
 
@@ -383,7 +426,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
                             <Search className="absolute left-3 top-3 text-gray-400" size={20} />
                             <input 
                                 className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                                placeholder={`${t('search')} (Name, SKU, Supplier)`}
+                                placeholder={`${t('search')} (Name, SKU, Brand)`}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
@@ -399,8 +442,10 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
                                     <tr>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('sku')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('name')}</th>
+                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('brand')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase w-32">{t('price')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('suppliers')}</th>
+                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">Entry Time</th>
                                         <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                                     </tr>
                                 </thead>
@@ -412,6 +457,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
                                                 <div className="font-medium text-gray-800">{p.name || '-'}</div>
                                                 <div className="text-xs text-gray-400">{p.unit}</div>
                                             </td>
+                                            <td className="p-4 align-top text-sm text-gray-600">{p.brand || '-'}</td>
                                             <td className="p-4 align-top">
                                                 <div className="font-mono text-blue-700 font-bold">{p.currency} {Number(p.price || 0).toFixed(2)}</div>
                                                 {(p.cost !== undefined && p.cost !== null) && (
@@ -439,6 +485,9 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
                                                     <span className="text-gray-300 text-xs">-</span>
                                                 )}
                                             </td>
+                                            <td className="p-4 hidden md:table-cell align-top">
+                                                <span className="text-xs text-gray-500 whitespace-nowrap">{p.createdAt || '-'}</span>
+                                            </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end space-x-2">
                                                     <button onClick={() => setViewHistory(p)} className="p-2 text-gray-500 hover:bg-gray-100 rounded transition-colors" title="View History">
@@ -457,7 +506,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, sett
                                             </td>
                                         </tr>
                                     ))}
-                                    {filtered.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
+                                    {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
                                 </tbody>
                             </table>
                         </div>
