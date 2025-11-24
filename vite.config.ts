@@ -10,6 +10,10 @@ const __dirname = path.dirname(__filename);
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: '0.0.0.0', // Listen on all local IPs
+    port: 5173,
+  },
   resolve: {
     alias: {
       // Alias removed to ensure strict relative paths are used

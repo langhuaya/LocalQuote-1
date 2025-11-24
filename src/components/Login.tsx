@@ -20,6 +20,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const data = await api.login(username, password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('username', data.username);
+      // Store extended profile info
+      if (data.fullName) localStorage.setItem('user_fullName', data.fullName);
+      if (data.email) localStorage.setItem('user_email', data.email);
+      if (data.phone) localStorage.setItem('user_phone', data.phone);
+      
       onLoginSuccess();
     } catch (err) {
       setError('Invalid username or password');
@@ -37,7 +42,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </div>
           <h1 className="text-2xl font-bold text-gray-800">Welcome Back</h1>
           <p className="text-gray-500">Sign in to SwiftQuote Pro</p>
-          <p className="text-xs text-gray-400 mt-2">(Default: admin / admin123)</p>
         </div>
 
         {error && (

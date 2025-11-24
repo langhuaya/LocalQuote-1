@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Quote, QuoteType, Currency, Customer, Product, QuoteItem, CompanySettings } from '../types';
 import { Plus, Trash2, Save, ArrowLeft, Eye, X, Search, Image as ImageIcon, ChevronDown, Check } from 'lucide-react';
 import { generateId } from '../services/api';
@@ -15,7 +16,7 @@ interface QuoteEditorProps {
   t: (key: string) => string;
 }
 
-// --- Sub-component: Searchable Product Dropdown ---
+// --- Sub-component: Searchable Product Dropdown (with Portal) ---
 const ProductSearch = ({ 
   products, 
   value, 
@@ -29,19 +30,47 @@ const ProductSearch = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dropdownStyle, setDropdownStyle] = useState({});
   const wrapperRef = useRef<HTMLDivElement>(null);
   const selectedProduct = products.find(p => p.id === value);
+
+  // Calculate position and open
+  const toggleOpen = () => {
+    if (!isOpen && wrapperRef.current) {
+        const rect = wrapperRef.current.getBoundingClientRect();
+        
+        setDropdownStyle({
+            position: 'fixed',
+            top: rect.bottom, // Use viewport coordinates for fixed
+            left: rect.left,
+            width: Math.max(rect.width, 350), // Min width for better readability
+            zIndex: 9999
+        });
+    }
+    setIsOpen(!isOpen);
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+      const dropdownEl = document.getElementById('product-search-dropdown');
+      
+      if (wrapperRef.current && !wrapperRef.current.contains(target) && dropdownEl && !dropdownEl.contains(target)) {
         setIsOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [wrapperRef]);
+    
+    if(isOpen) {
+        document.addEventListener("mousedown", handleClickOutside);
+        // Also close on scroll to prevent detached UI
+        window.addEventListener("scroll", () => setIsOpen(false), true);
+    }
+    return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        window.removeEventListener("scroll", () => setIsOpen(false), true);
+    };
+  }, [isOpen]);
 
   // Filter products
   const filteredProducts = useMemo(() => {
@@ -49,7 +78,8 @@ const ProductSearch = ({
     const lower = searchTerm.toLowerCase();
     return products.filter(p => 
       p.sku.toLowerCase().includes(lower) || 
-      p.name.toLowerCase().includes(lower)
+      p.name.toLowerCase().includes(lower) ||
+      (p.supplierName || '').toLowerCase().includes(lower)
     );
   }, [products, searchTerm]);
 
@@ -64,7 +94,7 @@ const ProductSearch = ({
       {/* Trigger Input */}
       <div 
         className="relative cursor-pointer"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
       >
         <div className={`w-full pl-8 pr-8 p-2 border rounded text-sm mb-2 font-medium flex items-center h-[38px] transition-colors
           ${selectedProduct ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-white border-gray-300 text-gray-500'}`}
@@ -79,47 +109,55 @@ const ProductSearch = ({
         </div>
       </div>
 
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute z-50 w-[300px] md:w-[400px] bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto left-0 top-full">
-          <div className="sticky top-0 bg-white p-2 border-b border-gray-100">
+      {/* Dropdown Menu (Portalled) */}
+      {isOpen && createPortal(
+        <div 
+            id="product-search-dropdown"
+            style={dropdownStyle} 
+            className="bg-white border border-gray-200 rounded-lg shadow-2xl mt-1 max-h-72 overflow-y-auto flex flex-col"
+        >
+          <div className="sticky top-0 bg-white p-2 border-b border-gray-100 z-10">
              <input 
                 autoFocus
                 type="text"
-                placeholder="Type SKU or Name to search..." 
+                placeholder="Type SKU, Name, or Supplier..." 
                 className="w-full p-2 bg-gray-50 border border-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
              />
           </div>
-          {filteredProducts.length === 0 ? (
-            <div className="p-4 text-center text-sm text-gray-500">No products found.</div>
-          ) : (
-            <div className="py-1">
-              {filteredProducts.map(p => (
-                <div 
-                  key={p.id}
-                  onClick={() => handleSelect(p.id)}
-                  className={`px-4 py-2 hover:bg-blue-50 cursor-pointer flex justify-between items-center group border-b border-gray-50 last:border-0
-                    ${p.id === value ? 'bg-blue-50' : ''}`}
-                >
-                  <div className="flex-1 overflow-hidden">
-                    <div className="flex items-center">
-                        <span className="font-bold text-gray-800 text-sm mr-2">{p.sku}</span>
-                        {p.id === value && <Check size={14} className="text-blue-600" />}
+          <div className="flex-1 overflow-y-auto">
+            {filteredProducts.length === 0 ? (
+                <div className="p-4 text-center text-sm text-gray-500">No products found.</div>
+            ) : (
+                <div className="py-1">
+                {filteredProducts.map(p => (
+                    <div 
+                    key={p.id}
+                    onClick={() => handleSelect(p.id)}
+                    className={`px-4 py-2 hover:bg-blue-50 cursor-pointer flex justify-between items-center group border-b border-gray-50 last:border-0
+                        ${p.id === value ? 'bg-blue-50' : ''}`}
+                    >
+                    <div className="flex-1 overflow-hidden">
+                        <div className="flex items-center">
+                            <span className="font-bold text-gray-800 text-sm mr-2">{p.sku}</span>
+                            {p.id === value && <Check size={14} className="text-blue-600" />}
+                        </div>
+                        <div className="text-sm text-gray-600 truncate">{p.name}</div>
+                        {p.supplierName && <div className="text-[10px] text-gray-400 truncate">Sup: {p.supplierName}</div>}
                     </div>
-                    <div className="text-sm text-gray-600 truncate">{p.name}</div>
-                  </div>
-                  <div className="text-right pl-4">
-                     <div className="text-xs font-bold text-gray-700">{p.currency} {p.price.toFixed(2)}</div>
-                     <div className="text-[10px] text-gray-400">/{p.unit || 'unit'}</div>
-                  </div>
+                    <div className="text-right pl-4">
+                        <div className="text-xs font-bold text-gray-700">{p.currency} {p.price.toFixed(2)}</div>
+                        <div className="text-[10px] text-gray-400">/{p.unit || 'unit'}</div>
+                    </div>
+                    </div>
+                ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -150,6 +188,9 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
   const [discountRate, setDiscountRate] = useState(0);
   const [shipping, setShipping] = useState(0);
   
+  // Salesperson Info State
+  const [salesperson, setSalesperson] = useState({ name: '', email: '', phone: '' });
+  
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -169,12 +210,37 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
       setDiscountRate(initialQuote.discountRate);
       setShipping(initialQuote.shipping || 0);
       setItems(initialQuote.items);
+      // Load salesperson from existing quote or fall back to current user if missing (legacy support)
+      if (initialQuote.salesperson) {
+          setSalesperson(initialQuote.salesperson);
+      } else {
+          setSalesperson({
+              name: localStorage.getItem('user_fullName') || localStorage.getItem('username') || '',
+              email: localStorage.getItem('user_email') || '',
+              phone: localStorage.getItem('user_phone') || ''
+          });
+      }
     } else {
-      setQuoteNumber(`${settings.quotePrefix}${new Date().getFullYear()}${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`);
-      const today = new Date();
-      const nextMonth = new Date(today);
-      nextMonth.setMonth(today.getMonth() + 1);
+      // NEW QUOTE
+      const now = new Date();
+      const dateStr = now.getFullYear() + 
+                      String(now.getMonth() + 1).padStart(2, '0') + 
+                      String(now.getDate()).padStart(2, '0');
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      
+      setQuoteNumber(`${settings.quotePrefix}${dateStr}${random}`);
+
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(now.getMonth() + 1);
       setValidUntil(nextMonth.toISOString().split('T')[0]);
+      
+      // Auto-fill Salesperson from LocalStorage (Current logged in user)
+      setSalesperson({
+          name: localStorage.getItem('user_fullName') || localStorage.getItem('username') || '',
+          email: localStorage.getItem('user_email') || '',
+          phone: localStorage.getItem('user_phone') || ''
+      });
+
       setItems([{
         id: generateId(),
         productId: '',
@@ -268,6 +334,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
           validUntil,
           customerId,
           customerSnapshot: selectedCustomer || fallbackCustomer, 
+          salesperson,
           items,
           currency,
           subtotal,
@@ -368,6 +435,31 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                     </div>
                 </div>
               </div>
+            </div>
+            
+            {/* Salesperson Details */}
+            <div className="p-4 border rounded-lg bg-white">
+                <h3 className="font-semibold text-gray-700 mb-2">Salesperson Info</h3>
+                <div className="space-y-2 text-sm">
+                    <input 
+                        className="w-full p-2 border rounded" 
+                        placeholder="Name" 
+                        value={salesperson.name} 
+                        onChange={e => setSalesperson({...salesperson, name: e.target.value})} 
+                    />
+                    <input 
+                        className="w-full p-2 border rounded" 
+                        placeholder="Email" 
+                        value={salesperson.email} 
+                        onChange={e => setSalesperson({...salesperson, email: e.target.value})} 
+                    />
+                    <input 
+                        className="w-full p-2 border rounded" 
+                        placeholder="Phone" 
+                        value={salesperson.phone} 
+                        onChange={e => setSalesperson({...salesperson, phone: e.target.value})} 
+                    />
+                </div>
             </div>
           </div>
 

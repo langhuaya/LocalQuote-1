@@ -1,3 +1,4 @@
+
 import { Quote, Product, Customer, CompanySettings } from '../types';
 
 const KEYS = {
@@ -51,7 +52,14 @@ export const storageService = {
   // --- Settings ---
   getSettings: (): CompanySettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
-    if (data) return JSON.parse(data);
+    if (data) {
+        const settings = JSON.parse(data);
+        // Ensure exchangeRates exists for migration
+        if (!settings.exchangeRates) {
+            settings.exchangeRates = { "USD": 1, "CNY": 7.20, "EUR": 0.92, "GBP": 0.79 };
+        }
+        return settings;
+    }
     
     return {
       name: 'LH WAVE TRADING CO., LTD.',
@@ -63,7 +71,13 @@ export const storageService = {
       logoDataUrl: DEFAULT_LOGO,
       stampDataUrl: '',
       bankInfo: 'BENEFICIARY: LH WAVE TRADING CO., LTD.\nBANK: BANK OF CHINA\nSWIFT: BKCHCNBJ300\nA/C NO: 1234567890123456',
-      quotePrefix: 'LH-'
+      quotePrefix: 'LH-',
+      exchangeRates: {
+        "USD": 1,
+        "CNY": 7.20,
+        "EUR": 0.92,
+        "GBP": 0.79
+      }
     };
   },
   saveSettings: (settings: CompanySettings) => {

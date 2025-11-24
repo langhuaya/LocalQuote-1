@@ -1,3 +1,4 @@
+
 import { Quote, Product, Customer, CompanySettings, User } from '../types';
 
 // In development (Vite), we use the proxy or full URL. 
@@ -14,7 +15,7 @@ const getHeaders = () => {
 
 export const api = {
   // Auth
-  login: async (username: string, password: string): Promise<{token: string, username: string}> => {
+  login: async (username: string, password: string): Promise<{token: string, username: string, fullName?: string, email?: string, phone?: string}> => {
     const res = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

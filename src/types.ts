@@ -1,3 +1,4 @@
+
 export enum QuoteType {
   PROFORMA = 'Proforma Invoice',
   COMMERCIAL = 'Commercial Invoice',
@@ -11,9 +12,22 @@ export enum Currency {
   GBP = 'GBP'
 }
 
+export interface SupplierInfo {
+  id: string;
+  name: string;
+  reference?: string; // Supplier SKU or Link
+  cost: number;
+  currency: Currency;
+  hasStock: boolean;
+  isDefault: boolean;
+  notes?: string;
+}
+
 export interface PriceHistoryItem {
   date: string;
-  price: number;
+  price: number; // Sales Price at that time
+  cost?: number; // Supplier Cost at that time
+  supplier?: string; // Supplier at that time
   updatedBy: string;
 }
 
@@ -25,8 +39,15 @@ export interface Product {
   price: number;
   currency: Currency;
   unit: string;
-  cost?: number; // Internal cost
   
+  // Sourcing Info (Computed from Default Supplier or Legacy)
+  cost?: number; // Internal cost (Primary Supplier Price)
+  supplierName?: string; // Primary Supplier Name
+  supplierReference?: string; // Primary Supplier Ref
+  
+  // New Multi-Supplier Support
+  suppliers?: SupplierInfo[];
+
   // Ownership & History
   createdBy?: string;
   updatedBy?: string;
@@ -63,6 +84,8 @@ export interface CompanySettings {
   stampDataUrl: string;
   bankInfo: string;
   quotePrefix: string;
+  // Exchange Rates (Base: USD)
+  exchangeRates: { [key: string]: number };
 }
 
 export interface QuoteItem {
@@ -85,6 +108,14 @@ export interface Quote {
   validUntil: string;
   customerId: string;
   customerSnapshot: Customer;
+  
+  // Salesperson / Creator Info
+  salesperson?: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+
   items: QuoteItem[];
   currency: Currency;
   subtotal: number;
@@ -106,5 +137,8 @@ export interface Quote {
 export interface User {
   id: number;
   username: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
   role?: 'admin' | 'user';
 }

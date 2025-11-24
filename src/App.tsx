@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -16,7 +17,8 @@ import {
   Loader2, 
   Image as ImageIcon, 
   LogOut,
-  Shield
+  Shield,
+  Coins
 } from 'lucide-react';
 import { api, generateId } from './services/api';
 import { storageService } from './services/storageService';
@@ -37,7 +39,7 @@ type Lang = 'en' | 'zh';
 // --- Translations Dictionary ---
 const TRANSLATIONS = {
   en: {
-    dashboard: 'Dashboard v2.4 (Online)',
+    dashboard: 'Dashboard v2.5 (Pro)',
     quotes: 'Quotes & Invoices',
     products: 'Product Inventory',
     customers: 'Customers',
@@ -63,7 +65,11 @@ const TRANSLATIONS = {
     sku: 'SKU / Model',
     name: 'Product Name',
     price: 'Sales Price',
-    cost: 'Cost (Internal)',
+    cost: 'Cost',
+    supplier: 'Supplier',
+    suppliers: 'Suppliers',
+    supplierRef: 'Ref/Link',
+    margin: 'Margin',
     desc: 'Description',
     unit: 'Unit',
     contact: 'Contact',
@@ -114,10 +120,22 @@ const TRANSLATIONS = {
     generating: 'Generating...',
     exportPdf: 'Export PDF',
     logout: 'Logout',
-    createdBy: 'Created By'
+    createdBy: 'Created By',
+    sourcingInfo: 'Sourcing & Cost Info',
+    salesInfo: 'Sales Information',
+    addSupplier: 'Add Supplier',
+    hasStock: 'In Stock',
+    noStock: 'No Stock',
+    isDefault: 'Default',
+    setDefault: 'Set as Default',
+    exchangeRates: 'Exchange Rates (Base: 1 USD)',
+    ratesDesc: 'Set exchange rates to calculate accurate margins when cost and sales currencies differ.',
+    currencySettings: 'Currency Settings',
+    customerValidation: 'Please provide either Company Name or Contact Person.',
+    skuRequired: 'SKU is required.'
   },
   zh: {
-    dashboard: '仪表盘 v2.4 (在线)',
+    dashboard: '仪表盘 v2.5 (Pro)',
     quotes: '报价单管理',
     products: '产品库管理',
     customers: '客户管理',
@@ -143,7 +161,11 @@ const TRANSLATIONS = {
     sku: 'SKU / 型号',
     name: '产品名称',
     price: '销售单价',
-    cost: '成本价 (内部)',
+    cost: '成本价',
+    supplier: '供应商',
+    suppliers: '供应商列表',
+    supplierRef: '货号/链接',
+    margin: '利润率',
     desc: '详细描述',
     unit: '单位 (个/套)',
     contact: '联系人',
@@ -194,7 +216,19 @@ const TRANSLATIONS = {
     generating: '正在生成...',
     exportPdf: '下载 PDF',
     logout: '退出登录',
-    createdBy: '创建人'
+    createdBy: '创建人',
+    sourcingInfo: '供应链与成本信息',
+    salesInfo: '销售信息',
+    addSupplier: '添加供应商',
+    hasStock: '有现货',
+    noStock: '无现货',
+    isDefault: '主要货源',
+    setDefault: '设为主要',
+    exchangeRates: '汇率设置 (基准: 1 USD)',
+    ratesDesc: '设置汇率以便在采购币种与销售币种不同时计算准确的利润率。',
+    currencySettings: '货币设置',
+    customerValidation: '请填写公司名称或联系人（至少一项）。',
+    skuRequired: '必须填写 SKU / 型号。'
   }
 };
 
@@ -241,8 +275,7 @@ export default function App() {
     } catch (error) {
       console.error("Failed to load data", error);
       // Handle auth failure (token expired)
-      setIsAuthenticated(false);
-      localStorage.removeItem('token');
+      handleLogout();
     } finally {
       setIsLoading(false);
     }
@@ -264,6 +297,9 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user_fullName');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_phone');
     setIsAuthenticated(false);
   };
 
@@ -429,7 +465,7 @@ export default function App() {
             t={t}
         />;
       case 'products':
-        return <ProductsManager products={products} onSave={handleProductSave} onDelete={handleDeleteProduct} t={t} />;
+        return <ProductsManager products={products} settings={settings} onSave={handleProductSave} onDelete={handleDeleteProduct} t={t} />;
       case 'customers':
         return <CustomersManager customers={customers} onSave={handleCustomerSave} onDelete={handleDeleteCustomer} t={t} />;
       case 'settings':
@@ -530,7 +566,7 @@ export default function App() {
               <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
                      <div className="text-right hidden md:block">
-                         <p className="text-sm font-bold text-gray-700">{localStorage.getItem('username') || 'Admin'}</p>
+                         <p className="text-sm font-bold text-gray-700">{localStorage.getItem('user_fullName') || localStorage.getItem('username') || 'Admin'}</p>
                          <p className="text-xs text-green-500">Online</p>
                      </div>
                      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
@@ -718,8 +754,8 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filtered = customers.filter((c: Customer) => 
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        c.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())
+        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (c.contactPerson || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const handleEdit = (c: Customer) => {
@@ -734,9 +770,12 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if(currentCustomer.name) {
+        // CHANGED: Validation logic allow Name OR Contact
+        if(currentCustomer.name || currentCustomer.contactPerson) {
             onSave(currentCustomer as Customer);
             setIsEditing(false);
+        } else {
+            alert(t('customerValidation'));
         }
     };
 
@@ -749,11 +788,11 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase">{t('company')}</label>
-                                <input required className="w-full p-2 border rounded" value={currentCustomer.name || ''} onChange={e => setCurrentCustomer({...currentCustomer, name: e.target.value})} />
+                                <input className="w-full p-2 border rounded" value={currentCustomer.name || ''} onChange={e => setCurrentCustomer({...currentCustomer, name: e.target.value})} placeholder="Required if Contact is empty" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase">{t('contact')}</label>
-                                <input required className="w-full p-2 border rounded" value={currentCustomer.contactPerson || ''} onChange={e => setCurrentCustomer({...currentCustomer, contactPerson: e.target.value})} />
+                                <input className="w-full p-2 border rounded" value={currentCustomer.contactPerson || ''} onChange={e => setCurrentCustomer({...currentCustomer, contactPerson: e.target.value})} placeholder="Required if Company is empty" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase">{t('email')}</label>
@@ -826,8 +865,8 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                                 <tbody className="divide-y divide-gray-100">
                                     {filtered.map((c: Customer) => (
                                         <tr key={c.id} className="hover:bg-gray-50">
-                                            <td className="p-4 font-bold text-gray-700">{c.name}</td>
-                                            <td className="p-4">{c.contactPerson}</td>
+                                            <td className="p-4 font-bold text-gray-700">{c.name || '-'}</td>
+                                            <td className="p-4">{c.contactPerson || '-'}</td>
                                             <td className="p-4">{c.country}</td>
                                             <td className="p-4 text-gray-500 text-sm">{c.email}</td>
                                             <td className="p-4 text-gray-500 text-xs">{c.createdBy || '-'}</td>
@@ -862,6 +901,16 @@ const SettingsManager = ({ settings, onSave, t }: any) => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+    
+    const handleRateChange = (currency: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            exchangeRates: {
+                ...prev.exchangeRates,
+                [currency]: parseFloat(value) || 0
+            }
+        }));
     };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'logoDataUrl' | 'stampDataUrl') => {
@@ -957,6 +1006,33 @@ const SettingsManager = ({ settings, onSave, t }: any) => {
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('bankInfo')}</label>
                             <textarea name="bankInfo" rows={5} className="w-full p-2 border rounded font-mono text-sm" value={formData.bankInfo || ''} onChange={handleChange} />
                         </div>
+                    </div>
+                </div>
+
+                {/* Currency & Exchange Rates Section */}
+                <div className="pt-4 border-t">
+                    <h4 className="font-bold text-gray-500 text-xs uppercase border-b pb-2 mb-4 flex items-center">
+                        <Coins size={14} className="mr-2"/> {t('currencySettings')}
+                    </h4>
+                    
+                    <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                        <p className="text-sm text-blue-800 font-medium mb-1">{t('exchangeRates')}</p>
+                        <p className="text-xs text-blue-600">{t('ratesDesc')}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {['CNY', 'EUR', 'GBP'].map(curr => (
+                            <div key={curr}>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">1 USD = ? {curr}</label>
+                                <input 
+                                    type="number" 
+                                    step="0.0001"
+                                    className="w-full p-2 border rounded font-mono" 
+                                    value={formData.exchangeRates?.[curr] || ''} 
+                                    onChange={(e) => handleRateChange(curr, e.target.value)} 
+                                />
+                            </div>
+                        ))}
                     </div>
                 </div>
 

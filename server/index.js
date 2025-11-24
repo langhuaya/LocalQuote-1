@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -42,13 +43,21 @@ app.post('/api/login', (req, res) => {
     if (!isValid) return res.status(401).json({ error: "Invalid password" });
 
     const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '24h' });
-    res.json({ token, username: user.username });
+    
+    // Return full user info (excluding password)
+    res.json({ 
+      token, 
+      username: user.username,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone
+    });
   });
 });
 
 // Get all users (for management)
 app.get('/api/users', authenticateToken, (req, res) => {
-  db.all("SELECT id, username FROM users", [], (err, rows) => {
+  db.all("SELECT id, username, fullName, email, phone FROM users", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -56,14 +65,17 @@ app.get('/api/users', authenticateToken, (req, res) => {
 
 // Create new user
 app.post('/api/users', authenticateToken, (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, fullName, email, phone } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Username and password required" });
   
   const hash = bcrypt.hashSync(password, 10);
-  db.run("INSERT INTO users (username, password) VALUES (?, ?)", [username, hash], function(err) {
-    if (err) return res.status(500).json({ error: "Username likely already exists" });
-    res.json({ id: this.lastID, username });
-  });
+  db.run("INSERT INTO users (username, password, fullName, email, phone) VALUES (?, ?, ?, ?, ?)", 
+    [username, hash, fullName || '', email || '', phone || ''], 
+    function(err) {
+      if (err) return res.status(500).json({ error: "Username likely already exists" });
+      res.json({ id: this.lastID, username, fullName, email, phone });
+    }
+  );
 });
 
 // Delete user
@@ -154,11 +166,17 @@ app.post('/api/products', authenticateToken, (req, res) => {
        finalData.updatedAt = now;
        finalData.priceHistory = existing.priceHistory || [];
 
-       // Logic: If price changed, add to history
-       if (parseFloat(existing.price) !== parseFloat(newProduct.price)) {
+       // Logic: If price, cost, or supplier changed, add to history
+       const priceChanged = parseFloat(existing.price) !== parseFloat(newProduct.price);
+       const costChanged = parseFloat(existing.cost || 0) !== parseFloat(newProduct.cost || 0);
+       const supplierChanged = (existing.supplierName || '') !== (newProduct.supplierName || '');
+
+       if (priceChanged || costChanged || supplierChanged) {
           finalData.priceHistory.push({
              date: now,
-             price: parseFloat(existing.price), // Store the OLD price in history
+             price: parseFloat(existing.price), // Store the OLD price/cost
+             cost: parseFloat(existing.cost || 0),
+             supplier: existing.supplierName || '',
              updatedBy: existing.updatedBy || 'Unknown'
           });
        }
@@ -221,6 +239,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
