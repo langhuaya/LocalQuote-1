@@ -1,5 +1,4 @@
 
-
 import React, { forwardRef } from 'react';
 import { Quote, CompanySettings } from '../types';
 
@@ -12,12 +11,15 @@ interface InvoiceTemplateProps {
 export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ quote, settings, mode = 'preview' }, ref) => {
   const { customerSnapshot: customer, items } = quote;
 
+  // A4 Layout Constants
   const baseStyle: React.CSSProperties = {
-    width: '794px', // Standard A4 width in pixels (at ~96 DPI)
+    width: '794px', // 210mm @ 96dpi
+    minHeight: '1123px', // 297mm @ 96dpi
     backgroundColor: 'white',
     position: 'relative',
     boxSizing: 'border-box',
-    fontFamily: '"Inter", sans-serif',
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    color: '#1e293b', // slate-800
   };
 
   let containerStyle: React.CSSProperties = { ...baseStyle };
@@ -26,20 +28,13 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
   if (mode === 'preview') {
     containerStyle = {
       ...baseStyle,
-      // CRITICAL FIX: Do NOT use width: '100%' here. 
-      // It causes the A4 layout to squash on mobile screens.
-      // We enforce the fixed 794px width and let the parent container scroll.
-      width: '794px', 
-      minWidth: '794px',
-      minHeight: '1123px', // A4 height
       margin: '0 auto',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+      boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.15)',
     };
-    wrapperClass = "flex justify-center min-h-full";
+    wrapperClass = "flex justify-center py-8 bg-gray-100 min-h-screen";
   } else if (mode === 'generate') {
     containerStyle = {
       ...baseStyle,
-      minHeight: '1123px', 
       height: 'auto', 
       overflow: 'visible'
     };
@@ -48,217 +43,215 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
     containerStyle = { ...baseStyle, display: 'none' };
   }
 
+  // Helper for formatting currency
+  const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <div className={wrapperClass}>
-       <div ref={ref} style={containerStyle} className="text-gray-900 bg-white flex flex-col">
-          {/* Content Padding */}
-          <div className="p-8 flex flex-col flex-grow relative">
+       <div ref={ref} style={containerStyle} className="flex flex-col">
+          
+          {/* Decorative Top Bar */}
+          <div className="h-2 w-full bg-blue-600"></div>
+
+          <div className="p-12 flex flex-col flex-grow relative">
             
-            {/* Header Section */}
-            <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-4">
+            {/* --- HEADER --- */}
+            <div className="flex justify-between items-start mb-10">
+                {/* Logo & Seller Info */}
                 <div className="w-1/2 pr-6">
-                  {settings.logoDataUrl ? (
-                    <img 
-                        src={settings.logoDataUrl} 
-                        alt="Logo" 
-                        className="h-16 object-contain mb-2 block" 
-                        crossOrigin="anonymous"
-                    />
-                  ) : (
-                    <h1 className="text-2xl font-bold text-gray-900 mb-1 uppercase tracking-wide">{settings.name}</h1>
-                  )}
-                  
-                  <div className="text-[10px] text-gray-600 leading-tight">
-                      <p className="font-bold text-gray-800 text-xs mb-0.5">{settings.name}</p>
-                      <p>{settings.address}</p>
-                      <p>{settings.city}, {settings.country}</p>
-                      <div className="mt-1 flex flex-wrap gap-x-3 text-gray-800">
-                           {/* Priority: Show specific Salesperson info if available */}
-                           {quote.salesperson?.name ? (
+                    {settings.logoDataUrl ? (
+                        <img src={settings.logoDataUrl} alt="Logo" className="h-24 object-contain mb-4" crossOrigin="anonymous"/>
+                    ) : (
+                        <h1 className="text-2xl font-bold text-slate-900 mb-4 tracking-tight">{settings.name}</h1>
+                    )}
+                    
+                    <div className="text-sm text-slate-500 leading-relaxed">
+                        <p className="font-bold text-slate-900 text-base mb-1">{settings.name}</p>
+                        <p>{settings.address}</p>
+                        <p>{settings.city}, {settings.country}</p>
+                        <div className="mt-3 space-y-0.5">
+                             {/* Salesperson Priority */}
+                             {quote.salesperson?.name ? (
                                <>
-                                   <div className="font-bold text-blue-800">{quote.salesperson.name}</div>
-                                   {quote.salesperson.email && <div>Email: {quote.salesperson.email}</div>}
-                                   {quote.salesperson.phone && <div>Tel: {quote.salesperson.phone}</div>}
+                                   <p><span className="font-bold text-slate-700">Rep:</span> {quote.salesperson.name}</p>
+                                   <p><span className="font-bold text-slate-700">Email:</span> {quote.salesperson.email}</p>
+                                   {quote.salesperson.phone && <p><span className="font-bold text-slate-700">Tel:</span> {quote.salesperson.phone}</p>}
                                </>
                            ) : (
                                <>
-                                   {settings.phone && <span><strong>Tel:</strong> {settings.phone}</span>}
-                                   {settings.email && <span><strong>Email:</strong> {settings.email}</span>}
+                                   {settings.email && <p><span className="font-bold text-slate-700">Email:</span> {settings.email}</p>}
+                                   {settings.phone && <p><span className="font-bold text-slate-700">Tel:</span> {settings.phone}</p>}
                                </>
                            )}
-                      </div>
-                  </div>
+                        </div>
+                    </div>
                 </div>
 
+                {/* Document Details */}
                 <div className="w-1/2 text-right">
-                  <h2 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-widest uppercase">{quote.type}</h2>
-                  
-                  <table className="ml-auto border-collapse border border-gray-900 min-w-[220px]">
-                    <tbody>
-                        <tr>
-                            <td className="w-20 p-1.5 bg-gray-100 border-b border-r border-gray-400 align-middle text-left">
-                                <span className="text-[9px] font-bold text-black uppercase">Ref No:</span>
-                            </td>
-                            <td className="p-1.5 bg-white border-b border-gray-400 text-right align-middle">
-                                <span className="text-xs font-bold text-black">{quote.number}</span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="w-20 p-1.5 bg-gray-100 border-b border-r border-gray-400 align-middle text-left">
-                                <span className="text-[9px] font-bold text-black uppercase">Date:</span>
-                            </td>
-                            <td className="p-1.5 bg-white border-b border-gray-400 text-right align-middle">
-                                <span className="text-xs text-black">{quote.date}</span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="w-20 p-1.5 bg-gray-100 border-r border-gray-400 align-middle text-left">
-                                <span className="text-[9px] font-bold text-black uppercase">Expiry:</span>
-                            </td>
-                            <td className="p-1.5 bg-white text-right align-middle">
-                                <span className="text-xs text-black">{quote.validUntil}</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                  </table>
+                    <h2 className="text-4xl font-light text-slate-300 uppercase tracking-widest mb-6 pr-4">{quote.type}</h2>
+                    
+                    <div className="inline-block text-left min-w-[220px]">
+                        <div className="grid grid-cols-[90px_1fr] gap-y-2 text-sm border-l-4 border-blue-600 pl-4 py-1">
+                            <span className="text-slate-500 font-medium">Ref No.</span>
+                            <span className="font-bold text-slate-900">{quote.number}</span>
+                            
+                            <span className="text-slate-500 font-medium">Date</span>
+                            <span className="text-slate-900">{quote.date}</span>
+                            
+                            <span className="text-slate-500 font-medium">Expiry</span>
+                            <span className="text-slate-900">{quote.validUntil}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Bill To Section */}
-            <div className="mb-4">
-                 <div className="flex items-center mb-1">
-                    <div className="h-3 w-1 bg-blue-600 mr-2 rounded-full"></div>
-                    <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Bill To / Buyer</h3>
-                 </div>
-                 <div className="ml-3 bg-gray-50 p-3 rounded">
-                    <h2 className="text-lg font-bold text-gray-900 mb-1">{customer.name}</h2>
-                    <div className="grid grid-cols-2 gap-4 text-xs text-gray-700">
+            {/* --- ADDRESSES --- */}
+            <div className="mb-10">
+                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bill To</h3>
+                 <div className="border-t border-slate-200 pt-4">
+                    <h2 className="text-lg font-bold text-slate-800 mb-2">{customer.name}</h2>
+                    <div className="grid grid-cols-2 gap-8 text-sm text-slate-600">
                         <div>
-                            <p className="flex"><span className="font-semibold text-gray-500 w-12 flex-shrink-0">Attn:</span> {customer.contactPerson}</p>
-                            <p className="flex"><span className="font-semibold text-gray-500 w-12 flex-shrink-0">Tel:</span> {customer.phone}</p>
-                            <p className="flex"><span className="font-semibold text-gray-500 w-12 flex-shrink-0">Email:</span> {customer.email}</p>
+                            <p className="mb-1 text-slate-800">{customer.address}</p>
+                            <p>{customer.city} {customer.zipCode}</p>
+                            <p>{customer.country}</p>
+                            {customer.taxId && <p className="mt-2"><span className="text-xs font-bold uppercase text-slate-400 mr-2">Tax ID</span>{customer.taxId}</p>}
                         </div>
-                        <div>
-                            <p>{customer.address}</p>
-                            <p>{customer.city} {customer.zipCode}, {customer.country}</p>
-                            {customer.taxId && <p className="mt-0.5"><span className="font-semibold text-gray-500">Tax ID:</span> {customer.taxId}</p>}
+                        <div className="text-right sm:text-left">
+                            <p><span className="text-slate-400 w-14 inline-block">Attn</span> <span className="font-medium text-slate-800">{customer.contactPerson}</span></p>
+                            <p><span className="text-slate-400 w-14 inline-block">Tel</span> {customer.phone}</p>
+                            <p><span className="text-slate-400 w-14 inline-block">Email</span> {customer.email}</p>
                         </div>
                     </div>
                  </div>
             </div>
 
-            {/* Table Section */}
-            <div className="mb-4 flex-grow">
+            {/* --- PRODUCT TABLE --- */}
+            <div className="mb-8 flex-grow">
                 <table className="w-full border-collapse">
                     <thead>
-                        <tr className="bg-gray-800 text-white">
-                            <th className="py-2 px-3 text-left text-[10px] uppercase font-semibold w-[40%] text-white">Description</th>
-                            <th className="py-2 px-3 text-left text-[10px] uppercase font-semibold w-[15%] text-white">Brand</th>
-                            <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[10%] text-white">Qty</th>
-                            <th className="py-2 px-3 text-center text-[10px] uppercase font-semibold w-[10%] text-white">Unit</th>
-                            <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[10%] text-white">Price</th>
-                            <th className="py-2 px-3 text-right text-[10px] uppercase font-semibold w-[15%] text-white">Amount</th>
+                        <tr className="border-b border-slate-300">
+                            <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[8%]">Image</th>
+                            <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[32%]">Description</th>
+                            <th className="pb-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Brand</th>
+                            <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Lead Time</th>
+                            <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Qty</th>
+                            {/* Increased padding right for Price to separate it from Amount */}
+                            <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[15%] pr-8">Price</th>
+                            <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[15%]">Amount</th>
                         </tr>
                     </thead>
-                    <tbody className="text-xs text-gray-700">
+                    <tbody className="text-sm">
                         {items.map((item, idx) => (
-                            <tr key={item.id} className={`border-b border-gray-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                <td className="py-2 px-3 align-top">
-                                    <p className="font-bold text-gray-900 text-xs">{item.sku}</p>
-                                    <p className="text-gray-800">{item.name}</p>
-                                    {/* Description text removed as requested */}
+                            <tr key={item.id} className="border-b border-slate-100 last:border-0 group">
+                                <td className="py-4 align-top">
+                                    {item.imageDataUrl ? (
+                                        <img src={item.imageDataUrl} alt="" className="w-12 h-12 object-contain bg-white border border-slate-100 rounded p-0.5" />
+                                    ) : (
+                                        <div className="w-12 h-12 bg-slate-50 rounded flex items-center justify-center text-[9px] text-slate-300">No Img</div>
+                                    )}
                                 </td>
-                                <td className="py-2 px-3 text-left align-top text-gray-600 font-medium">{item.brand || '-'}</td>
-                                <td className="py-2 px-3 text-right align-top font-medium">{item.quantity}</td>
-                                <td className="py-2 px-3 text-center align-top text-[10px] uppercase text-gray-500">{item.unit || 'pcs'}</td>
-                                <td className="py-2 px-3 text-right align-top">{item.price.toFixed(2)}</td>
-                                <td className="py-2 px-3 text-right align-top font-bold text-gray-900">{(item.price * item.quantity).toFixed(2)}</td>
+                                <td className="py-4 align-top pr-4">
+                                    <p className="font-bold text-slate-800 text-sm mb-0.5">{item.sku}</p>
+                                    <p className="text-slate-600 text-xs leading-relaxed">{item.name}</p>
+                                </td>
+                                <td className="py-4 align-top text-center text-slate-600">{item.brand || '—'}</td>
+                                <td className="py-4 align-top text-left text-slate-600 text-xs">{item.leadTime || '-'}</td>
+                                <td className="py-4 align-top text-right font-medium">
+                                    {item.quantity} <span className="text-xs text-slate-400 font-normal">{item.unit}</span>
+                                </td>
+                                {/* Added pr-8 to Price cell to match header and create gap */}
+                                <td className="py-4 align-top text-right text-slate-600 pr-8">{fmt(item.price)}</td>
+                                <td className="py-4 align-top text-right font-bold text-slate-800">{fmt(item.price * item.quantity)}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
 
-            {/* Totals Section */}
-            <div className="flex justify-end mb-4 break-inside-avoid">
-                <div className="w-5/12">
-                    <div className="flex justify-between py-1.5 border-b border-gray-200 text-xs text-gray-600">
-                        <span>Subtotal</span>
-                        <span>{quote.currency} {quote.subtotal.toFixed(2)}</span>
-                    </div>
-                    {quote.discountAmount > 0 && (
-                        <div className="flex justify-between py-1.5 border-b border-gray-200 text-xs text-red-500">
-                            <span>Discount ({quote.discountRate}%)</span>
-                            <span>- {quote.currency} {quote.discountAmount.toFixed(2)}</span>
-                        </div>
-                    )}
-                    {quote.shipping > 0 && (
-                        <div className="flex justify-between py-1.5 border-b border-gray-200 text-xs text-gray-600">
-                            <span>Shipping / Freight</span>
-                            <span>{quote.currency} {quote.shipping.toFixed(2)}</span>
-                        </div>
-                    )}
-                    <div className="flex justify-between py-2 items-center">
-                        <span className="text-sm font-bold text-gray-900">TOTAL</span>
-                        <span className="text-xl font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{quote.currency} {quote.total.toFixed(2)}</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Footer / Terms */}
-            <div className="grid grid-cols-2 gap-6 mb-4 border-t border-gray-200 pt-4 break-inside-avoid">
-                 <div>
-                     <h4 className="text-[9px] font-bold text-gray-900 uppercase tracking-wider mb-1">Payment Information</h4>
-                     <div className="bg-gray-50 p-2 border border-gray-300">
-                         <pre className="whitespace-pre-wrap font-mono text-[8px] text-black leading-tight">{settings.bankInfo}</pre>
+            {/* --- TOTALS & BANK INFO --- */}
+            <div className="flex justify-between items-start mb-8 break-inside-avoid">
+                {/* Bank Info / Left Side */}
+                <div className="w-[55%] pr-8">
+                     <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Payment Details</h4>
+                     {/* Reduced leading and padding for tighter bank info */}
+                     <div className="bg-slate-50 p-3 rounded text-xs text-slate-600 leading-snug border border-slate-100 font-mono">
+                         <div className="whitespace-pre-wrap">{settings.bankInfo}</div>
                      </div>
-                 </div>
-                 <div>
-                     <h4 className="text-[9px] font-bold text-gray-900 uppercase tracking-wider mb-1">Terms & Conditions</h4>
-                     <ul className="text-[9px] space-y-1 text-gray-800">
-                        <li className="grid grid-cols-[60px_1fr]"><span className="font-bold text-gray-600">Incoterms:</span> {quote.incoterms}</li>
-                        <li className="grid grid-cols-[60px_1fr]"><span className="font-bold text-gray-600">Lead Time:</span> {quote.leadTime}</li>
-                        <li className="grid grid-cols-[60px_1fr]"><span className="font-bold text-gray-600">Payment:</span> {quote.paymentTerms}</li>
-                     </ul>
-                     {quote.notes && (
-                         <div className="mt-2">
-                             <p className="font-bold text-gray-600 text-[9px] uppercase mb-0.5">Notes:</p>
-                             <p className="text-[9px] text-gray-800 italic leading-tight">{quote.notes}</p>
-                         </div>
-                     )}
-                 </div>
+
+                     {/* Terms */}
+                     <div className="mt-4 text-xs text-slate-500 space-y-1">
+                        <p><strong className="text-slate-700">Incoterms:</strong> {quote.incoterms}</p>
+                        <p><strong className="text-slate-700">Payment:</strong> {quote.paymentTerms}</p>
+                        {quote.notes && <p className="mt-2 italic">"{quote.notes}"</p>}
+                     </div>
+                </div>
+
+                {/* Totals / Right Side */}
+                <div className="w-[40%]">
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between text-slate-600">
+                            <span>Subtotal</span>
+                            <span className="font-medium">{quote.currency} {fmt(quote.subtotal)}</span>
+                        </div>
+                        {quote.discountAmount > 0 && (
+                            <div className="flex justify-between text-orange-600">
+                                <span>Discount ({quote.discountRate}%)</span>
+                                <span>- {quote.currency} {fmt(quote.discountAmount)}</span>
+                            </div>
+                        )}
+                        {quote.shipping > 0 && (
+                            <div className="flex justify-between text-slate-600">
+                                <span>Shipping / Freight</span>
+                                <span>{quote.currency} {fmt(quote.shipping)}</span>
+                            </div>
+                        )}
+                        
+                        <div className="h-px bg-slate-200 my-2"></div>
+                        
+                        <div className="flex justify-between items-center">
+                            <span className="text-base font-bold text-slate-800">Total</span>
+                            <span className="text-2xl font-bold text-blue-600">{quote.currency} {fmt(quote.total)}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Signature Section */}
-            <div className="mt-auto pt-2 break-inside-avoid">
-                <div className="flex justify-between items-end pb-2">
-                    <div className="w-1/3 text-center">
-                         <div className="border-b border-gray-400 h-16 mb-1"></div>
-                         <p className="text-[8px] font-bold text-gray-600 uppercase">Authorized Signature & Date</p>
-                         <p className="text-[8px] text-gray-400">(Buyer)</p>
-                    </div>
-                    <div className="w-1/3 text-center relative">
-                         {settings.stampDataUrl && (
-                             <img 
-                                src={settings.stampDataUrl} 
-                                alt="Stamp" 
-                                className="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 h-40 object-contain opacity-90 mix-blend-multiply pointer-events-none z-0"
-                                style={{ transform: 'translate(-50%, 0) rotate(-10deg)' }}
-                                crossOrigin="anonymous"
-                             />
-                         )}
-                         <div className="h-16 flex items-end justify-center relative z-10">
-                             <span className="font-serif font-bold text-base text-gray-900 mb-1">{settings.name}</span>
+            {/* --- FOOTER / SIGNATURE --- */}
+            <div className="mt-auto break-inside-avoid">
+                <div className="grid grid-cols-2 gap-12">
+                     <div className="text-center pt-8">
+                         <div className="border-b border-slate-300 h-12 mb-2"></div>
+                         <p className="text-xs font-bold text-slate-400 uppercase">Confirmed & Accepted By (Buyer)</p>
+                     </div>
+                     
+                     {/* Seller Signature - Re-centered logic */}
+                     <div className="text-center flex flex-col items-center">
+                         {/* Stamp Container: Relative to allow stacking */}
+                         <div className="h-32 w-full relative flex flex-col items-center justify-end pb-2">
+                             {/* Stamp Image: Absolute centered horizontally, adjusted bottom to overlap text slightly */}
+                             {settings.stampDataUrl && (
+                                 <img 
+                                    src={settings.stampDataUrl} 
+                                    alt="Stamp"
+                                    className="absolute bottom-6 left-1/2 -translate-x-1/2 w-36 h-36 object-contain mix-blend-multiply opacity-90 pointer-events-none"
+                                    crossOrigin="anonymous"
+                                 />
+                             )}
+                             {/* Company Name: Z-index higher to show text, but blend mode helps. */}
+                             <span className="font-serif font-bold text-lg text-slate-800 relative z-10">{settings.name}</span>
                          </div>
-                         <div className="border-b border-gray-400 mb-1 relative z-10"></div>
-                         <p className="text-[8px] font-bold text-gray-600 uppercase relative z-10">Authorized Signature</p>
-                         <p className="text-[8px] text-gray-400 relative z-10">(Seller)</p>
-                    </div>
+                         <div className="border-b border-slate-300 w-full mb-2"></div>
+                         <p className="text-xs font-bold text-slate-400 uppercase">Authorized Signature (Seller)</p>
+                     </div>
                 </div>
-                <div className="border-t border-gray-200 pt-1 text-center">
-                    <p className="text-[7px] text-gray-400">{settings.name}</p>
+                
+                <div className="text-center mt-8 text-[10px] text-slate-400 uppercase tracking-widest">
+                    Thank you for your business
                 </div>
             </div>
+
           </div>
        </div>
     </div>

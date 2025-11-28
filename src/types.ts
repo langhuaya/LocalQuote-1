@@ -1,5 +1,4 @@
 
-
 export enum QuoteType {
   PROFORMA = 'Proforma Invoice',
   COMMERCIAL = 'Commercial Invoice',
@@ -16,7 +15,7 @@ export enum Currency {
 export interface SupplierInfo {
   id: string;
   name: string;
-  reference?: string; // Supplier SKU or Link
+  reference?: string; 
   cost: number;
   currency: Currency;
   hasStock: boolean;
@@ -26,9 +25,9 @@ export interface SupplierInfo {
 
 export interface PriceHistoryItem {
   date: string;
-  price: number; // Sales Price at that time
-  cost?: number; // Supplier Cost at that time
-  supplier?: string; // Supplier at that time
+  price: number; 
+  cost?: number; 
+  supplier?: string; 
   updatedBy: string;
 }
 
@@ -38,7 +37,6 @@ export interface Brand {
   logoDataUrl?: string;
   description?: string;
   suppliers?: SupplierInfo[];
-  
   createdBy?: string;
   createdAt?: string;
   updatedBy?: string;
@@ -52,45 +50,65 @@ export interface Product {
   price: number;
   currency: Currency;
   unit: string;
-  brand?: string; // Brand Name
-  note?: string;  // Internal Note
-  
-  // Sourcing Info (Computed from Default Supplier or Legacy)
-  cost?: number; // Internal cost (Primary Supplier Price)
-  supplierName?: string; // Primary Supplier Name
-  supplierReference?: string; // Primary Supplier Ref
-  
-  // New Multi-Supplier Support
+  brand?: string; 
+  note?: string;  
+  cost?: number; 
+  imageDataUrl?: string; // New: Product Image
+  supplierName?: string; 
+  supplierReference?: string; 
   suppliers?: SupplierInfo[];
-
-  // Ownership & History
   createdBy?: string;
-  createdAt?: string; // YYYY-MM-DD HH:mm
+  createdAt?: string; 
   updatedBy?: string;
   updatedAt?: string;
   priceHistory?: PriceHistoryItem[];
 }
 
+export type CustomerRegion = 'International' | 'Domestic';
+
 export interface Customer {
   id: string;
-  name: string;
+  region: CustomerRegion; 
+  
+  // Shared
+  name: string; 
   contactPerson: string;
   email: string;
   phone: string;
   address: string;
-  city: string;
-  country: string;
-  zipCode: string;
-  taxId: string;
+  
+  // International Specific
+  city?: string;
+  country?: string;
+  zipCode?: string;
+  
+  // Domestic Specific
+  taxId?: string; 
+  bankName?: string; 
+  bankAccount?: string; 
+  
   source: string;
-
-  // Ownership
   createdBy?: string;
-  createdAt?: string; // YYYY-MM-DD HH:mm
+  createdAt?: string; 
   updatedBy?: string;
 }
 
+export interface DomesticCompanyInfo {
+  name: string; 
+  address: string;
+  contact: string;
+  phone: string;
+  fax: string;
+  taxId: string; 
+  bankName: string; 
+  bankAccount: string; 
+  stampDataUrl: string; 
+  contractTerms: string; 
+  contractPrefix: string; 
+}
+
 export interface CompanySettings {
+  // International Info
   name: string;
   address: string;
   city: string;
@@ -101,8 +119,11 @@ export interface CompanySettings {
   stampDataUrl: string;
   bankInfo: string;
   quotePrefix: string;
-  // Exchange Rates (Base: USD)
+  productUnits?: string; // New: Custom Product Units
   exchangeRates: { [key: string]: number };
+
+  // New: Domestic Info
+  domestic: DomesticCompanyInfo;
 }
 
 export interface QuoteItem {
@@ -111,11 +132,13 @@ export interface QuoteItem {
   sku: string;
   name: string;
   description: string;
+  imageDataUrl?: string; // New: Snapshot of image for quote
   unit: string;
   quantity: number;
   price: number;
   amount: number;
-  brand?: string; // Brand Name copied from product
+  brand?: string;
+  leadTime?: string; 
 }
 
 export interface Quote {
@@ -126,14 +149,11 @@ export interface Quote {
   validUntil: string;
   customerId: string;
   customerSnapshot: Customer;
-  
-  // Salesperson / Creator Info
   salesperson?: {
     name: string;
     email: string;
     phone: string;
   };
-
   items: QuoteItem[];
   currency: Currency;
   subtotal: number;
@@ -146,10 +166,32 @@ export interface Quote {
   paymentTerms: string;
   notes: string;
   status: 'Draft' | 'Sent' | 'Accepted';
-
-  // Ownership
   createdBy?: string;
-  createdAt?: string; // YYYY-MM-DD HH:mm
+  createdAt?: string;
+  updatedBy?: string;
+}
+
+export interface Contract {
+  id: string;
+  contractNumber: string; 
+  date: string; 
+  place: string; 
+  
+  supplierId?: string; 
+  supplierSnapshot: DomesticCompanyInfo; 
+  
+  customerId: string;
+  customerSnapshot: Customer; 
+  
+  items: QuoteItem[];
+  totalAmount: number;
+  currency: Currency; 
+  
+  terms: string; 
+  
+  status: 'Draft' | 'Signed';
+  createdBy?: string;
+  createdAt?: string;
   updatedBy?: string;
 }
 

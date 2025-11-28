@@ -1,3 +1,4 @@
+
 import { createRequire } from 'module';
 import bcrypt from 'bcryptjs';
 import path from 'path';
@@ -10,7 +11,6 @@ const require = createRequire(import.meta.url);
 const sqlite3 = require('sqlite3').verbose();
 
 // Use absolute path to ensure database is always created in the project root
-// regardless of where the script is executed from.
 const DB_PATH = path.join(__dirname, '../database.sqlite');
 
 const db = new sqlite3.Database(DB_PATH, (err) => {
@@ -24,7 +24,7 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 
 function initDb() {
   db.serialize(() => {
-    // Users Table - Expanded
+    // Users Table
     db.run(`CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE,
@@ -34,12 +34,9 @@ function initDb() {
       phone TEXT
     )`);
 
-    // Migration: Attempt to add columns if they don't exist (Simple migration)
     const columns = ['fullName', 'email', 'phone'];
     columns.forEach(col => {
-      db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, (err) => {
-        // Ignore error if column already exists
-      });
+      db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, (err) => {});
     });
 
     // Products Table
@@ -66,13 +63,19 @@ function initDb() {
       data TEXT
     )`);
 
-    // Settings Table (Single row)
+    // New: Contracts Table (Domestic)
+    db.run(`CREATE TABLE IF NOT EXISTS contracts (
+      id TEXT PRIMARY KEY,
+      data TEXT
+    )`);
+
+    // Settings Table
     db.run(`CREATE TABLE IF NOT EXISTS settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       data TEXT
     )`);
 
-    // Create default admin user if not exists
+    // Default Admin
     db.get("SELECT * FROM users WHERE username = ?", ["admin"], (err, row) => {
       if (!row) {
         const hash = bcrypt.hashSync("admin123", 10);

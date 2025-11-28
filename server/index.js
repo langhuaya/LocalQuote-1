@@ -17,13 +17,10 @@ const SECRET_KEY = 'your-secret-key-change-this-in-prod';
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-
   if (!token) return res.sendStatus(401);
-
   jwt.verify(token, SECRET_KEY, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
@@ -31,42 +28,25 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Helper: Get Local Time String (YYYY-MM-DD HH:mm)
 const getLocalTime = () => {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hour = String(now.getHours()).padStart(2, '0');
-  const minute = String(now.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hour}:${minute}`;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 };
 
-// --- Auth & User Management Routes ---
-
+// --- Auth Routes ---
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!user) return res.status(401).json({ error: "User not found" });
-
     const isValid = bcrypt.compareSync(password, user.password);
     if (!isValid) return res.status(401).json({ error: "Invalid password" });
-
     const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '24h' });
-    
-    // Return full user info (excluding password)
-    res.json({ 
-      token, 
-      username: user.username,
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone
-    });
+    res.json({ token, username: user.username, fullName: user.fullName, email: user.email, phone: user.phone });
   });
 });
 
-// Get all users (for management)
 app.get('/api/users', authenticateToken, (req, res) => {
   db.all("SELECT id, username, fullName, email, phone FROM users", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -74,11 +54,8 @@ app.get('/api/users', authenticateToken, (req, res) => {
   });
 });
 
-// Create new user
 app.post('/api/users', authenticateToken, (req, res) => {
   const { username, password, fullName, email, phone } = req.body;
-  if (!username || !password) return res.status(400).json({ error: "Username and password required" });
-  
   const hash = bcrypt.hashSync(password, 10);
   db.run("INSERT INTO users (username, password, fullName, email, phone) VALUES (?, ?, ?, ?, ?)", 
     [username, hash, fullName || '', email || '', phone || ''], 
@@ -89,24 +66,12 @@ app.post('/api/users', authenticateToken, (req, res) => {
   );
 });
 
-// Delete user
 app.delete('/api/users/:id', authenticateToken, (req, res) => {
   const userIdToDelete = parseInt(req.params.id);
-
-  // Check if trying to delete 'admin'
   db.get("SELECT username FROM users WHERE id = ?", [userIdToDelete], (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!row) return res.status(404).json({ error: "User not found" });
-
-      if (row.username === 'admin') {
-          return res.status(403).json({ error: "Cannot delete the default admin account." });
-      }
-
-      // Prevent deleting self
-      if (req.user.id === userIdToDelete) {
-         return res.status(400).json({ error: "Cannot delete your own account" });
-      }
-
+      if (err || !row) return res.status(404).json({ error: "User not found" });
+      if (row.username === 'admin') return res.status(403).json({ error: "Cannot delete admin." });
+      if (req.user.id === userIdToDelete) return res.status(400).json({ error: "Cannot delete self" });
       db.run("DELETE FROM users WHERE id = ?", [userIdToDelete], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
@@ -114,20 +79,11 @@ app.delete('/api/users/:id', authenticateToken, (req, res) => {
   });
 });
 
-
-// --- Generic CRUD Helpers ---
-
+// --- Generic CRUD ---
 const getAll = (table, res) => {
-  // ORDER BY rowid DESC to show newest items first (Last In First Out)
   db.all(`SELECT data FROM ${table} ORDER BY rowid DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    try {
-      const items = rows.map(row => JSON.parse(row.data));
-      res.json(items);
-    } catch (parseError) {
-      console.error(`Error parsing data from ${table}:`, parseError);
-      res.status(500).json({ error: "Data corruption detected" });
-    }
+    res.json(rows.map(row => JSON.parse(row.data)));
   });
 };
 
@@ -138,44 +94,32 @@ const deleteOne = (table, id, res) => {
   });
 };
 
-// --- Specialized Save Logic ---
-
-// Save Generic (Quotes, Customers, Brands) with Ownership
 const saveWithOwnership = (table, req, res) => {
   const id = req.body.id;
   const username = req.user.username;
-  
-  // Fetch existing to preserve 'createdBy' and 'createdAt'
   db.get(`SELECT data FROM ${table} WHERE id = ?`, [id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    
     let finalData = { ...req.body };
-    const now = getLocalTime(); // Precision: YYYY-MM-DD HH:mm
-
+    const now = getLocalTime();
     if (row) {
-       // Update existing
        const existing = JSON.parse(row.data);
        finalData.createdBy = existing.createdBy || username; 
-       finalData.createdAt = existing.createdAt || now; // Preserve creation time
+       finalData.createdAt = existing.createdAt || now;
        finalData.updatedBy = username;
        finalData.updatedAt = now;
     } else {
-       // Create new
        finalData.createdBy = username;
        finalData.createdAt = now;
        finalData.updatedBy = username;
        finalData.updatedAt = now;
     }
-
-    const dataStr = JSON.stringify(finalData);
-    db.run(`INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`, [id, dataStr], (err) => {
+    db.run(`INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`, [id, JSON.stringify(finalData)], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
   });
 };
 
-// Save Product (With Price History Logic)
 app.post('/api/products', authenticateToken, (req, res) => {
   const id = req.body.id;
   const username = req.user.username;
@@ -183,10 +127,9 @@ app.post('/api/products', authenticateToken, (req, res) => {
   
   db.get(`SELECT data FROM products WHERE id = ?`, [id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    
     let finalData = { ...newProduct };
-    const now = getLocalTime(); // Precision: YYYY-MM-DD HH:mm
-    const simpleDate = now.split(' ')[0]; // YYYY-MM-DD for price history
+    const now = getLocalTime();
+    const simpleDate = now.split(' ')[0];
 
     if (row) {
        const existing = JSON.parse(row.data);
@@ -196,7 +139,6 @@ app.post('/api/products', authenticateToken, (req, res) => {
        finalData.updatedAt = now;
        finalData.priceHistory = existing.priceHistory || [];
 
-       // Logic: If price, cost, or supplier changed, add to history
        const priceChanged = parseFloat(existing.price) !== parseFloat(newProduct.price);
        const costChanged = parseFloat(existing.cost || 0) !== parseFloat(newProduct.cost || 0);
        const supplierChanged = (existing.supplierName || '') !== (newProduct.supplierName || '');
@@ -204,7 +146,7 @@ app.post('/api/products', authenticateToken, (req, res) => {
        if (priceChanged || costChanged || supplierChanged) {
           finalData.priceHistory.push({
              date: simpleDate,
-             price: parseFloat(existing.price), // Store the OLD price/cost
+             price: parseFloat(existing.price),
              cost: parseFloat(existing.cost || 0),
              supplier: existing.supplierName || '',
              updatedBy: existing.updatedBy || 'Unknown'
@@ -217,64 +159,44 @@ app.post('/api/products', authenticateToken, (req, res) => {
        finalData.updatedAt = now;
        finalData.priceHistory = [];
     }
-
-    const dataStr = JSON.stringify(finalData);
-    db.run(`INSERT OR REPLACE INTO products (id, data) VALUES (?, ?)`, [id, dataStr], (err) => {
+    db.run(`INSERT OR REPLACE INTO products (id, data) VALUES (?, ?)`, [id, JSON.stringify(finalData)], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
   });
 });
 
-
-// --- Protected Data Routes ---
-
-// Products
 app.get('/api/products', authenticateToken, (req, res) => getAll('products', res));
-// POST uses specific handler above
 app.delete('/api/products/:id', authenticateToken, (req, res) => deleteOne('products', req.params.id, res));
 
-// Customers
 app.get('/api/customers', authenticateToken, (req, res) => getAll('customers', res));
 app.post('/api/customers', authenticateToken, (req, res) => saveWithOwnership('customers', req, res));
 app.delete('/api/customers/:id', authenticateToken, (req, res) => deleteOne('customers', req.params.id, res));
 
-// Brands
 app.get('/api/brands', authenticateToken, (req, res) => getAll('brands', res));
 app.post('/api/brands', authenticateToken, (req, res) => saveWithOwnership('brands', req, res));
 app.delete('/api/brands/:id', authenticateToken, (req, res) => deleteOne('brands', req.params.id, res));
 
-// Quotes
 app.get('/api/quotes', authenticateToken, (req, res) => getAll('quotes', res));
 app.post('/api/quotes', authenticateToken, (req, res) => saveWithOwnership('quotes', req, res));
 app.delete('/api/quotes/:id', authenticateToken, (req, res) => deleteOne('quotes', req.params.id, res));
 
-// Settings
+// --- New Contracts Routes ---
+app.get('/api/contracts', authenticateToken, (req, res) => getAll('contracts', res));
+app.post('/api/contracts', authenticateToken, (req, res) => saveWithOwnership('contracts', req, res));
+app.delete('/api/contracts/:id', authenticateToken, (req, res) => deleteOne('contracts', req.params.id, res));
+
 app.get('/api/settings', authenticateToken, (req, res) => {
-  db.get("SELECT data FROM settings WHERE id = 1", (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (row) {
-      res.json(JSON.parse(row.data));
-    } else {
-      res.json(null); 
-    }
-  });
+  db.get("SELECT data FROM settings WHERE id = 1", (err, row) => res.json(row ? JSON.parse(row.data) : null));
 });
 app.post('/api/settings', authenticateToken, (req, res) => {
-  const dataStr = JSON.stringify(req.body);
-  db.run(`INSERT OR REPLACE INTO settings (id, data) VALUES (1, ?)`, [dataStr], (err) => {
+  db.run(`INSERT OR REPLACE INTO settings (id, data) VALUES (1, ?)`, [JSON.stringify(req.body)], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
-// --- Serve Frontend (Production) ---
 app.use(express.static(path.join(__dirname, '../dist')));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../dist/index.html')));
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+app.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));

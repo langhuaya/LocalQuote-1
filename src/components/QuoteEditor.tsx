@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Quote, QuoteType, Currency, Customer, Product, QuoteItem, CompanySettings } from '../types';
@@ -138,13 +137,16 @@ const ProductSearch = ({
                     className={`px-4 py-2 hover:bg-blue-50 cursor-pointer flex justify-between items-center group border-b border-gray-50 last:border-0
                         ${p.id === value ? 'bg-blue-50' : ''}`}
                     >
-                    <div className="flex-1 overflow-hidden">
-                        <div className="flex items-center">
-                            <span className="font-bold text-gray-800 text-sm mr-2">{p.sku}</span>
-                            {p.id === value && <Check size={14} className="text-blue-600" />}
+                    <div className="flex items-center overflow-hidden">
+                        {p.imageDataUrl && <img src={p.imageDataUrl} alt="" className="w-8 h-8 object-contain mr-2 border rounded bg-white" />}
+                        <div className="flex-1 overflow-hidden">
+                            <div className="flex items-center">
+                                <span className="font-bold text-gray-800 text-sm mr-2">{p.sku}</span>
+                                {p.id === value && <Check size={14} className="text-blue-600" />}
+                            </div>
+                            <div className="text-sm text-gray-600 truncate">{p.name}</div>
+                            {p.brand && <div className="text-[10px] text-gray-400 truncate">Brand: {p.brand}</div>}
                         </div>
-                        <div className="text-sm text-gray-600 truncate">{p.name}</div>
-                        {p.brand && <div className="text-[10px] text-gray-400 truncate">Brand: {p.brand}</div>}
                     </div>
                     <div className="text-right pl-4">
                         <div className="text-xs font-bold text-gray-700">{p.currency} {p.price.toFixed(2)}</div>
@@ -363,6 +365,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
         price: 0,
         amount: 0,
         brand: '',
+        leadTime: '2-3 Weeks'
       }]);
     }
   }, [initialQuote, settings.quotePrefix]);
@@ -391,6 +394,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
         price: 0,
         amount: 0,
         brand: '',
+        leadTime: '2-3 Weeks'
       },
     ]);
   };
@@ -413,6 +417,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                 updated.price = prod.price;
                 updated.unit = prod.unit || 'pcs';
                 updated.brand = prod.brand || '';
+                updated.imageDataUrl = prod.imageDataUrl; // Sync Image
              }
           }
           updated.amount = updated.price * updated.quantity;
@@ -427,6 +432,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
       const selectedCustomer = customers.find(c => c.id === customerId);
       const fallbackCustomer: Customer = { 
           id: '0', 
+          region: 'International',
           name: 'Client Company Name (Preview)', 
           contactPerson: 'Contact Person', 
           email: 'client@example.com', 
@@ -644,6 +650,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/4">Select Product / SKU</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/4">{t('name')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1/6">{t('brand')}</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-20">{t('leadTime')}</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-20">{t('qty')}</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-20">{t('unit')}</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-24">{t('price')}</th>
@@ -661,10 +668,14 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                               onChange={(pid) => handleItemChange(item.id, 'productId', pid)}
                               currency={currency}
                           />
-                          <input className="w-full p-1.5 border rounded text-sm text-gray-600 placeholder-gray-400 mt-1" placeholder="SKU Override" value={item.sku} onChange={(e) => handleItemChange(item.id, 'sku', e.target.value)} />
+                          <div className="flex items-center mt-1">
+                             {item.imageDataUrl && <img src={item.imageDataUrl} alt="" className="w-8 h-8 object-contain border rounded mr-2" />}
+                             <input className="w-full p-1.5 border rounded text-sm text-gray-600 placeholder-gray-400" placeholder="SKU Override" value={item.sku} onChange={(e) => handleItemChange(item.id, 'sku', e.target.value)} />
+                          </div>
                         </td>
                         <td className="px-4 py-2 align-top"><textarea className="w-full p-2 border rounded text-sm text-gray-800 font-medium" rows={2} placeholder="Item Name / Desc" value={item.name} onChange={(e) => handleItemChange(item.id, 'name', e.target.value)} /></td>
                         <td className="px-4 py-2 align-top"><input className="w-full p-2 border rounded text-sm" value={item.brand || ''} onChange={e => handleItemChange(item.id, 'brand', e.target.value)} /></td>
+                        <td className="px-4 py-2 align-top"><input className="w-full p-2 border rounded text-sm text-right" value={item.leadTime || ''} onChange={e => handleItemChange(item.id, 'leadTime', e.target.value)} placeholder="e.g. 2w" /></td>
                         <td className="px-4 py-2 align-top"><input type="number" min="1" className="w-full p-2 border rounded text-sm text-right font-mono" value={item.quantity} onChange={e => handleItemChange(item.id, 'quantity', parseFloat(e.target.value))} /></td>
                         <td className="px-4 py-2 align-top"><input className="w-full p-2 border rounded text-sm text-center" value={item.unit || 'pcs'} onChange={e => handleItemChange(item.id, 'unit', e.target.value)} /></td>
                         <td className="px-4 py-2 align-top"><input type="number" min="0" step="0.01" className="w-full p-2 border rounded text-sm text-right font-mono" value={item.price} onChange={e => handleItemChange(item.id, 'price', parseFloat(e.target.value))} /></td>

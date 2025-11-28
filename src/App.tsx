@@ -1,303 +1,271 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LayoutDashboard, 
-  FileText, 
-  Package, 
-  Users, 
-  Settings, 
-  Plus, 
-  Search, 
-  Download, 
-  Edit, 
-  Trash2, 
-  Globe, 
-  Menu, 
-  X, 
-  Loader2, 
-  Image as ImageIcon, 
-  LogOut,
-  Shield,
-  Coins,
-  Tag
+  LayoutDashboard, FileText, Package, Users, Settings, Plus, Search, Download, Edit, Trash2, Globe, Menu, X, Loader2, Image as ImageIcon, LogOut, Shield, Coins, Tag, FileSignature
 } from 'lucide-react';
 import { api, generateId } from './services/api';
 import { storageService } from './services/storageService';
-import { Quote, Product, Customer, CompanySettings, Currency, Brand } from './types';
+import { Quote, Product, Customer, CompanySettings, Currency, Brand, Contract, CustomerRegion } from './types';
 import { QuoteEditor } from './components/QuoteEditor';
+import { ContractEditor } from './components/ContractEditor';
 import { InvoiceTemplate } from './components/InvoiceTemplate';
+import { ContractTemplate } from './components/ContractTemplate';
 import { Login } from './components/Login';
 import { UsersManager } from './components/UsersManager';
 import { ProductsManager } from './components/ProductsManager';
 import { BrandsManager } from './components/BrandsManager';
-
-// Libraries needed for PDF generation
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-type ViewState = 'dashboard' | 'quotes' | 'products' | 'customers' | 'brands' | 'settings' | 'users' | 'quote-editor';
+type ViewState = 'dashboard' | 'quotes' | 'contracts' | 'products' | 'customers' | 'brands' | 'settings' | 'users' | 'quote-editor' | 'contract-editor';
 type Lang = 'en' | 'zh';
 
-// --- Translations Dictionary ---
 const TRANSLATIONS = {
   en: {
-    dashboard: 'Dashboard v2.5 (Pro)',
-    quotes: 'Quotes & Invoices',
+    dashboard: 'Dashboard',
+    quotes: 'Export Quotes',
+    contracts: 'Sales Contracts',
     products: 'Product Inventory',
     customers: 'Customers',
     brands: 'Brand Management',
     settings: 'System Settings',
     users: 'Account Management',
     welcome: 'Welcome',
-    newQuote: 'Create New Quote',
-    search: 'Search...',
+    logout: 'Logout',
+    generating: 'Generating...',
+    customerRegion: 'Region',
+    domestic: 'Domestic (China)',
+    international: 'International',
+    taxId: 'Tax ID',
+    bankName: 'Bank Name',
+    bankAccount: 'Account No.',
+    company: 'Company Name',
+    contact: 'Contact Person',
+    contractTerms: 'Contract Terms',
+    domesticInfo: 'Domestic Company Info',
+    // Common Actions
+    add: 'Add',
+    new: 'New',
+    edit: 'Edit',
+    delete: 'Delete',
     save: 'Save',
     cancel: 'Cancel',
-    delete: 'Delete',
-    edit: 'Edit',
+    search: 'Search...',
     actions: 'Actions',
-    totalRevenue: 'Total Revenue',
-    totalQuotes: 'Total Quotes',
-    recentActivity: 'Recent Activity',
-    noQuotes: 'No data available.',
-    status: 'Status',
-    date: 'Date',
-    number: 'Number',
-    amount: 'Amount',
-    customer: 'Customer',
+    exportPdf: 'Export PDF',
+    exportImage: 'Export Image',
+    preview: 'Preview',
+    // Products
     sku: 'SKU / Model',
-    name: 'Product Name',
+    name: 'Name',
     brand: 'Brand',
-    note: 'Note',
-    price: 'Sales Price',
+    price: 'Price',
     cost: 'Cost',
-    supplier: 'Supplier',
-    suppliers: 'Suppliers',
-    supplierRef: 'Ref/Link',
-    margin: 'Margin',
-    desc: 'Description',
     unit: 'Unit',
-    contact: 'Contact',
-    company: 'Company Name',
-    country: 'Country',
-    phone: 'Phone',
-    address: 'Street Address',
-    city: 'City',
-    zip: 'Zip Code',
-    taxId: 'Tax/VAT ID',
-    source: 'Source',
-    email: 'Email',
-    bankInfo: 'Bank Info (For Invoice)',
-    logoUrl: 'Company Logo',
-    stampUrl: 'Company Stamp (Seal)',
-    quotePrefix: 'Quote Prefix',
-    saveSettings: 'Save Settings',
-    addProduct: 'Add Product',
-    addCustomer: 'Add Customer',
-    confirmDelete: 'Are you sure?',
-    settingsSaved: 'Settings Saved!',
-    startQuoteTitle: 'Start a new Quotation',
-    startQuoteDesc: 'Create professional invoices in seconds.',
-    companyProfile: 'Company Profile & PDF Settings',
-    quoteDetails: 'Quote Details',
+    suppliers: 'Suppliers',
+    addSupplier: 'Add Supplier',
+    noStock: 'No Stock',
+    hasStock: 'In Stock',
+    stock: 'Stock',
+    supplierRef: 'Supplier Ref/Link',
+    margin: 'Margin',
+    salesInfo: 'Sales Info',
+    desc: 'Description',
+    note: 'Internal Note',
+    entryTime: 'Entry Time',
+    skuRequired: 'SKU is required',
+    productImage: 'Product Image',
+    // Brands
+    addBrand: 'Add Brand',
+    description: 'Description',
+    suppliersCount: 'Suppliers Count',
+    // Quotes/Contracts
+    number: 'Number',
+    date: 'Date',
+    amount: 'Amount',
+    total: 'Total',
+    status: 'Status',
+    validUntil: 'Valid Until',
     billTo: 'Bill To',
+    selectCustomer: 'Select Customer',
     lineItems: 'Line Items',
-    notes: 'Notes & Terms',
+    addItem: 'Add Item',
     subtotal: 'Subtotal',
     discountRate: 'Discount Rate',
     discountAmount: 'Discount Amount',
-    shipping: 'Shipping Cost',
+    shipping: 'Shipping',
     grandTotal: 'Grand Total',
-    type: 'Type',
-    validUntil: 'Valid Until',
     currency: 'Currency',
     incoterms: 'Incoterms',
     leadTime: 'Lead Time',
     paymentTerms: 'Payment Terms',
-    addItem: 'Add Line Item',
-    qty: 'Qty',
-    selectCustomer: 'Select from Customer Manager',
-    customItem: 'Custom Item',
-    uploadImage: 'Upload Image',
-    preview: 'Preview PDF',
-    exportImage: 'Export Image',
-    close: 'Close',
-    generating: 'Generating...',
-    exportPdf: 'Export PDF',
-    logout: 'Logout',
-    createdBy: 'Created By',
-    createdAt: 'Created At',
-    sourcingInfo: 'Sourcing & Cost Info',
-    salesInfo: 'Sales Information',
-    addSupplier: 'Add Supplier',
-    hasStock: 'In Stock',
-    noStock: 'No Stock',
-    isDefault: 'Default',
-    setDefault: 'Set as Default',
-    exchangeRates: 'Exchange Rates (Base: 1 USD)',
-    ratesDesc: 'Set exchange rates to calculate accurate margins when cost and sales currencies differ.',
-    currencySettings: 'Currency Settings',
-    customerValidation: 'Please provide either Company Name or Contact Person.',
-    skuRequired: 'SKU is required.'
+    notes: 'Notes',
+    quoteDetails: 'Quote Details',
+    newQuote: 'New Quote',
+    contractNumber: 'Contract No.',
+    signDate: 'Sign Date',
+    buyer: 'Buyer',
+    contractPlace: 'Sign Place',
+    noData: 'No data available',
+    createdTime: 'Created Time',
+    createdUser: 'Created By'
   },
   zh: {
-    dashboard: '仪表盘 v2.5 (Pro)',
-    quotes: '报价单管理',
+    dashboard: '仪表盘',
+    quotes: '出口报价单',
+    contracts: '产品购销合同',
     products: '产品库管理',
     customers: '客户管理',
     brands: '品牌管理',
     settings: '系统设置',
     users: '账号管理',
-    welcome: '欢迎使用',
-    newQuote: '新建报价单',
-    search: '搜索...',
+    welcome: '欢迎',
+    logout: '退出登录',
+    generating: '正在生成...',
+    customerRegion: '客户区域',
+    domestic: '国内客户 (Domestic)',
+    international: '国外客户 (International)',
+    taxId: '纳税人识别号',
+    bankName: '开户行',
+    bankAccount: '银行账号',
+    company: '公司名称',
+    contact: '联系人',
+    contractTerms: '合同条款模板',
+    domesticInfo: '国内主体信息',
+    // Common Actions
+    add: '添加',
+    new: '新建',
+    edit: '编辑',
+    delete: '删除',
     save: '保存',
     cancel: '取消',
-    delete: '删除',
-    edit: '编辑',
+    search: '搜索...',
     actions: '操作',
-    totalRevenue: '总收入',
-    totalQuotes: '报价单总数',
-    recentActivity: '最近活动',
-    noQuotes: '暂无数据',
-    status: '状态',
-    date: '日期',
-    number: '单号',
-    amount: '总金额',
-    customer: '客户',
+    exportPdf: '导出 PDF',
+    exportImage: '导出图片',
+    preview: '预览',
+    // Products
     sku: 'SKU / 型号',
     name: '产品名称',
     brand: '品牌',
-    note: '备注',
     price: '销售单价',
     cost: '成本价',
-    supplier: '供应商',
-    suppliers: '供应商列表',
+    unit: '单位',
+    suppliers: '供应商信息',
+    addSupplier: '添加供应商',
+    noStock: '无货',
+    hasStock: '有现货',
+    stock: '库存',
     supplierRef: '货号/链接',
     margin: '利润率',
+    salesInfo: '销售信息',
     desc: '详细描述',
-    unit: '单位',
-    contact: '联系人',
-    company: '公司名称 (英文)',
-    country: '国家',
-    phone: '电话',
-    address: '街道地址',
-    city: '城市',
-    zip: '邮编',
-    taxId: '税号 (VAT/Tax)',
-    source: '客户来源',
-    email: '邮箱',
-    bankInfo: '银行账户信息 (显示在PDF)',
-    logoUrl: '公司 Logo (显示在左上角)',
-    stampUrl: '公司公章 (显示在右下角)',
-    quotePrefix: '编号前缀',
-    saveSettings: '保存设置',
-    addProduct: '新增产品',
-    addCustomer: '新增客户',
-    confirmDelete: '确认删除吗？',
-    settingsSaved: '设置已保存！',
-    startQuoteTitle: '快速报价',
-    startQuoteDesc: '创建专业的出口报价单（PI/CI）。',
-    companyProfile: '公司信息与打印设置',
-    quoteDetails: '报价单详情',
-    billTo: '客户信息 (Bill To)',
+    note: '内部备注',
+    entryTime: '入库时间',
+    skuRequired: 'SKU 是必填项',
+    productImage: '产品图片',
+    // Brands
+    addBrand: '添加品牌',
+    description: '描述/备注',
+    suppliersCount: '供应商数量',
+    // Quotes/Contracts
+    number: '编号',
+    date: '日期',
+    amount: '金额',
+    total: '总计',
+    status: '状态',
+    validUntil: '有效期至',
+    billTo: '客户信息',
+    selectCustomer: '从客户管理选择客户',
     lineItems: '产品明细',
-    notes: '备注 / 贸易条款',
+    addItem: '添加产品',
     subtotal: '小计',
     discountRate: '折扣率',
     discountAmount: '折扣金额',
     shipping: '运费',
     grandTotal: '总计',
-    type: '类型',
-    validUntil: '有效期至',
-    currency: '货币',
+    currency: '币种',
     incoterms: '贸易条款',
-    leadTime: '交货期',
+    leadTime: '货期',
     paymentTerms: '付款方式',
-    addItem: '添加一行产品',
-    qty: '数量',
-    selectCustomer: '从客户管理选择客户',
-    customItem: '手动输入产品',
-    uploadImage: '点击上传图片',
-    preview: '预览报价单',
-    exportImage: '导出图片',
-    close: '关闭',
-    generating: '正在生成...',
-    exportPdf: '下载 PDF',
-    logout: '退出登录',
-    createdBy: '创建人',
-    createdAt: '创建时间',
-    sourcingInfo: '供应链与成本信息',
-    salesInfo: '销售信息',
-    addSupplier: '添加供应商',
-    hasStock: '有现货',
-    noStock: '无现货',
-    isDefault: '主要货源',
-    setDefault: '设为主要',
-    exchangeRates: '汇率设置 (基准: 1 USD)',
-    ratesDesc: '设置汇率以便在采购币种与销售币种不同时计算准确的利润率。',
-    currencySettings: '货币设置',
-    customerValidation: '请填写公司名称或联系人（至少一项）。',
-    skuRequired: '必须填写 SKU / 型号。'
+    notes: '备注',
+    quoteDetails: '报价详情',
+    newQuote: '新建报价单',
+    contractNumber: '合同编号',
+    signDate: '签订时间',
+    buyer: '需方 (客户)',
+    contractPlace: '签订地点',
+    noData: '暂无数据',
+    createdTime: '创建时间',
+    createdUser: '创建人'
   }
 };
 
 export default function App() {
-  // --- Auth State ---
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Global Data State ---
+  // Data
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [settings, setSettings] = useState<CompanySettings>(storageService.getSettings()); // Fallback to default
+  const [settings, setSettings] = useState<CompanySettings>(storageService.getSettings());
   
-  // --- UI State ---
+  // UI
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [lang, setLang] = useState<Lang>('zh');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
-  // --- PDF Ref ---
-  const printRef = useRef<HTMLDivElement>(null);
+  // Print Refs
+  const printQuoteRef = useRef<HTMLDivElement>(null);
+  const printContractRef = useRef<HTMLDivElement>(null);
   const [printQuote, setPrintQuote] = useState<Quote | null>(null);
+  const [printContract, setPrintContract] = useState<Contract | null>(null);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'image'>('pdf');
 
-  // --- Helper: Translate ---
   const t = (key: keyof typeof TRANSLATIONS['en']) => TRANSLATIONS[lang][key] || key;
 
-  // --- Load Data ---
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [q, p, c, b, s] = await Promise.all([
+      const [q, ctr, p, c, b, s] = await Promise.all([
         api.getQuotes(),
+        api.getContracts(),
         api.getProducts(),
         api.getCustomers(),
         api.getBrands(),
         api.getSettings()
       ]);
       
-      // Sort quotes by Date Desc, then Number Desc (Newest first)
-      const sortedQuotes = q.sort((a, b) => {
-          const dateA = new Date(a.date).getTime();
-          const dateB = new Date(b.date).getTime();
-          if (dateA !== dateB) return dateB - dateA; // Newest date first
-          return b.number.localeCompare(a.number); // Highest number first
-      });
+      const sortedQuotes = q.sort((a: Quote, b: Quote) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const sortedContracts = ctr.sort((a: Contract, b: Contract) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       setQuotes(sortedQuotes);
+      setContracts(sortedContracts);
       setProducts(p);
       setCustomers(c);
       setBrands(b);
-      if (s) setSettings(s);
+      
+      if (s) {
+          // SAFETY FIX: Polyfill domestic settings if missing from DB (legacy data)
+          const defaultSettings = storageService.getSettings();
+          const mergedSettings = {
+              ...defaultSettings,
+              ...s,
+              domestic: {
+                  ...defaultSettings.domestic,
+                  ...(s.domestic || {})
+              }
+          };
+          setSettings(mergedSettings);
+      }
     } catch (error) {
       console.error("Failed to load data", error);
-      // Handle auth failure (token expired)
       handleLogout();
     } finally {
       setIsLoading(false);
@@ -305,200 +273,120 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadData();
-    } else {
-      setIsLoading(false);
-    }
+    if (isAuthenticated) loadData();
+    else setIsLoading(false);
   }, [isAuthenticated]);
 
-  // --- Actions ---
-
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-  };
-
+  const handleLoginSuccess = () => setIsAuthenticated(true);
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user_fullName');
-    localStorage.removeItem('user_email');
-    localStorage.removeItem('user_phone');
+    localStorage.clear();
     setIsAuthenticated(false);
   };
 
+  // --- Quote Actions ---
   const handleSaveQuote = async (quote: Quote) => {
     await api.saveQuote(quote);
     await loadData(); 
     setCurrentView('quotes');
     setEditingQuote(null);
   };
-
   const handleDeleteQuote = async (id: string) => {
-    if(confirm(t('confirmDelete'))) {
-        await api.deleteQuote(id);
-        await loadData();
-    }
+    if(confirm(t('delete') + '?')) { await api.deleteQuote(id); await loadData(); }
   };
 
-  const handleProductSave = async (product: Product) => {
-    await api.saveProduct(product);
+  // --- Contract Actions ---
+  const handleSaveContract = async (contract: Contract) => {
+    await api.saveContract(contract);
     await loadData();
+    setCurrentView('contracts');
+    setEditingContract(null);
   };
-  
-  const handleDeleteProduct = async (id: string) => {
-      if(confirm(t('confirmDelete'))) {
-        await api.deleteProduct(id);
-        await loadData();
-      }
+  const handleDeleteContract = async (id: string) => {
+    if(confirm(t('delete') + '?')) { await api.deleteContract(id); await loadData(); }
   };
 
-  const handleCustomerSave = async (customer: Customer) => {
-    await api.saveCustomer(customer);
-    await loadData();
-  };
+  // --- Generic Actions ---
+  const handleProductSave = async (p: Product) => { await api.saveProduct(p); await loadData(); };
+  const handleDeleteProduct = async (id: string) => { if(confirm(t('delete') + '?')) { await api.deleteProduct(id); await loadData(); }};
+  const handleCustomerSave = async (c: Customer) => { await api.saveCustomer(c); await loadData(); };
+  const handleDeleteCustomer = async (id: string) => { if(confirm(t('delete') + '?')) { await api.deleteCustomer(id); await loadData(); }};
+  const handleBrandSave = async (b: Brand) => { await api.saveBrand(b); await loadData(); };
+  const handleDeleteBrand = async (id: string) => { if(confirm(t('delete') + '?')) { await api.deleteBrand(id); await loadData(); }};
+  const handleSaveSettings = async (s: CompanySettings) => { await api.saveSettings(s); setSettings(s); alert(t('save') + ' Success!'); };
 
-   const handleDeleteCustomer = async (id: string) => {
-      if(confirm(t('confirmDelete'))) {
-        await api.deleteCustomer(id);
-        await loadData();
-      }
-  };
-
-  const handleBrandSave = async (brand: Brand) => {
-    await api.saveBrand(brand);
-    await loadData();
-  };
-
-  const handleDeleteBrand = async (id: string) => {
-    if(confirm(t('confirmDelete'))) {
-      await api.deleteBrand(id);
-      await loadData();
-    }
-  }
-
-  const handleSaveSettings = async (newSettings: CompanySettings) => {
-    await api.saveSettings(newSettings);
-    setSettings(newSettings);
-    alert(t('settingsSaved'));
-  };
-
-  // Unified Export Handler
-  const handleExport = async (quote: Quote, format: 'pdf' | 'image') => {
+  // --- Export Logic ---
+  const handleExport = async (doc: Quote | Contract, format: 'pdf' | 'image', type: 'quote' | 'contract') => {
     if (isGeneratingPdf) return;
-    
     setIsGeneratingPdf(true);
-    setPrintQuote(quote);
     setExportFormat(format);
+    
+    if (type === 'quote') setPrintQuote(doc as Quote);
+    else setPrintContract(doc as Contract);
 
-    // Give React time to render the "generate" mode template
     setTimeout(async () => {
-        if (printRef.current) {
+        const ref = type === 'quote' ? printQuoteRef.current : printContractRef.current;
+        if (ref) {
             try {
-                // INCREASED SCALE FOR BETTER QUALITY (from 2 to 4)
                 const scale = format === 'pdf' ? 4 : 3;
-
-                const canvas = await html2canvas(printRef.current, {
-                    scale: scale, 
-                    useCORS: true,
-                    allowTaint: true,
-                    logging: false,
-                    windowWidth: 794, // Lock width to A4 pixel width
-                    scrollY: 0,
-                    backgroundColor: '#ffffff'
-                });
+                const canvas = await html2canvas(ref, { scale, useCORS: true, logging: false, windowWidth: 794, backgroundColor: '#ffffff' });
 
                 if (format === 'image') {
-                    // --- IMAGE EXPORT ---
                     canvas.toBlob((blob) => {
                         if (blob) {
                             const url = URL.createObjectURL(blob);
                             const link = document.createElement('a');
                             link.href = url;
-                            link.download = `${quote.number}.png`;
+                            link.download = `${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.png`;
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);
                             URL.revokeObjectURL(url);
                         }
                     }, 'image/png');
-
                 } else {
-                    // --- PDF EXPORT ---
                     const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                    
-                    if (imgData === 'data:,') throw new Error('Empty image data');
-
                     const pdf = new jsPDF('p', 'mm', 'a4');
                     const pdfWidth = 210; 
                     const pdfHeight = 297; 
-                    
                     const imgProps = pdf.getImageProperties(imgData);
                     const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                    
                     let heightLeft = imgHeight;
                     let position = 0;
 
                     pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
                     heightLeft -= pdfHeight;
-
                     while (heightLeft >= 1) {
                         position = heightLeft - imgHeight;
                         pdf.addPage();
                         pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
                         heightLeft -= pdfHeight;
                     }
-                    pdf.save(`${quote.number}.pdf`);
+                    pdf.save(`${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.pdf`);
                 }
-
             } catch (err) {
                 console.error("Export failed", err);
-                alert("Failed to export. Please check console.");
+                alert("Failed to export.");
             } finally {
                 setPrintQuote(null);
+                setPrintContract(null);
                 setIsGeneratingPdf(false);
             }
-        } else {
-            console.error("Print ref not found");
-            setIsGeneratingPdf(false);
         }
-    }, 1500); 
+    }, 1500);
   };
 
-  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
-
-  const navigateTo = (view: ViewState) => {
-      setCurrentView(view);
-      closeMobileMenu();
-  };
-
-  // --- Render Logic ---
+  const navigateTo = (view: ViewState) => { setCurrentView(view); setIsMobileMenuOpen(false); };
 
   const renderContent = () => {
     switch (currentView) {
       case 'quote-editor':
-        return (
-            <QuoteEditor 
-                initialQuote={editingQuote}
-                customers={customers}
-                products={products}
-                settings={settings}
-                onSave={handleSaveQuote}
-                onCancel={() => navigateTo('quotes')}
-                onExport={handleExport} 
-                t={t}
-            />
-        );
+        return <QuoteEditor initialQuote={editingQuote} customers={customers} products={products} settings={settings} onSave={handleSaveQuote} onCancel={() => navigateTo('quotes')} onExport={(q, f) => handleExport(q, f, 'quote')} t={t} />;
+      case 'contract-editor':
+        return <ContractEditor initialContract={editingContract} customers={customers} products={products} settings={settings} onSave={handleSaveContract} onCancel={() => navigateTo('contracts')} onExport={(c, f) => handleExport(c, f, 'contract')} t={t} />;
       case 'quotes':
-        return <QuotesList 
-            quotes={quotes} 
-            onEdit={(q: Quote) => { setEditingQuote(q); navigateTo('quote-editor'); }} 
-            onDelete={handleDeleteQuote}
-            onNew={() => { setEditingQuote(null); navigateTo('quote-editor'); }}
-            onExport={handleExport} 
-            isGenerating={isGeneratingPdf}
-            t={t}
-        />;
+        return <QuotesList quotes={quotes} onEdit={(q:Quote) => { setEditingQuote(q); navigateTo('quote-editor'); }} onDelete={handleDeleteQuote} onNew={() => { setEditingQuote(null); navigateTo('quote-editor'); }} onExport={(q:Quote, f:any) => handleExport(q, f, 'quote')} isGenerating={isGeneratingPdf} t={t} />;
+      case 'contracts':
+        return <ContractsList contracts={contracts} onEdit={(c:Contract) => { setEditingContract(c); navigateTo('contract-editor'); }} onDelete={handleDeleteContract} onNew={() => { setEditingContract(null); navigateTo('contract-editor'); }} onExport={(c:Contract, f:any) => handleExport(c, f, 'contract')} isGenerating={isGeneratingPdf} t={t} />;
       case 'products':
         return <ProductsManager products={products} brands={brands} settings={settings} onSave={handleProductSave} onDelete={handleDeleteProduct} t={t} />;
       case 'customers':
@@ -511,22 +399,16 @@ export default function App() {
         return <UsersManager t={t} />;
       case 'dashboard':
       default:
-        return <Dashboard quotes={quotes} products={products} customers={customers} onCreateQuote={() => { setEditingQuote(null); navigateTo('quote-editor'); }} t={t} />;
+        return <Dashboard quotes={quotes} contracts={contracts} t={t} />;
     }
   };
 
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  if (isLoading && products.length === 0 && quotes.length === 0) {
-      return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-10 h-10" /></div>;
-  }
+  if (!isAuthenticated) return <Login onLoginSuccess={handleLoginSuccess} />;
+  if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-10 h-10" /></div>;
 
   return (
     <>
       <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
-        
         {isGeneratingPdf && (
             <div className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex flex-col items-center justify-center text-white">
                 <Loader2 className="animate-spin w-12 h-12 mb-4" />
@@ -534,35 +416,15 @@ export default function App() {
             </div>
         )}
 
-        {isMobileMenuOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onClick={closeMobileMenu}></div>
-        )}
-
-        {/* Sidebar */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-100 flex flex-col shadow-xl transition-transform duration-300 ease-in-out
-          md:relative md:translate-x-0 flex-shrink-0
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
-          <div className="p-6 flex items-center border-b border-slate-800 justify-between">
-              <div className="flex items-center overflow-hidden">
-                  {settings.logoDataUrl ? (
-                      <img src={settings.logoDataUrl} alt="Logo" className="h-8 w-auto object-contain" />
-                  ) : (
-                      <>
-                          <div className="w-8 h-8 bg-blue-600 rounded-lg mr-3 flex items-center justify-center font-bold text-white flex-shrink-0">L</div>
-                          <h1 className="text-xl font-bold tracking-wide whitespace-nowrap">LH WAVE</h1>
-                      </>
-                  )}
-              </div>
-              <button onClick={closeMobileMenu} className="md:hidden text-slate-400 hover:text-white">
-                  <X size={24} />
-              </button>
+        <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-100 flex flex-col shadow-xl transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+          <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+             <h1 className="text-xl font-bold">LH WAVE</h1>
+             <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden"><X size={24}/></button>
           </div>
-          
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto no-scrollbar">
               <SidebarItem icon={<LayoutDashboard size={20} />} label={t('dashboard')} active={currentView === 'dashboard'} onClick={() => navigateTo('dashboard')} />
               <SidebarItem icon={<FileText size={20} />} label={t('quotes')} active={currentView === 'quotes' || currentView === 'quote-editor'} onClick={() => navigateTo('quotes')} />
+              <SidebarItem icon={<FileSignature size={20} />} label={t('contracts')} active={currentView === 'contracts' || currentView === 'contract-editor'} onClick={() => navigateTo('contracts')} />
               <SidebarItem icon={<Package size={20} />} label={t('products')} active={currentView === 'products'} onClick={() => navigateTo('products')} />
               <SidebarItem icon={<Users size={20} />} label={t('customers')} active={currentView === 'customers'} onClick={() => navigateTo('customers')} />
               <SidebarItem icon={<Tag size={20} />} label={t('brands')} active={currentView === 'brands'} onClick={() => navigateTo('brands')} />
@@ -571,58 +433,31 @@ export default function App() {
                   <SidebarItem icon={<Shield size={20} />} label={t('users')} active={currentView === 'users'} onClick={() => navigateTo('users')} />
               </div>
           </nav>
-          
           <div className="p-4 border-t border-slate-800 space-y-2">
-              <button 
-                  onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
-                  className="flex items-center justify-center w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded transition-colors text-sm"
-              >
-                  <Globe size={16} className="mr-2" />
-                  {lang === 'en' ? '切换到 中文' : 'Switch to English'}
-              </button>
-              <button 
-                  onClick={handleLogout}
-                  className="flex items-center justify-center w-full py-2 px-4 bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded transition-colors text-sm"
-              >
-                  <LogOut size={16} className="mr-2" />
-                  {t('logout')}
-              </button>
+              <button onClick={() => setLang(lang === 'en' ? 'zh' : 'en')} className="flex items-center justify-center w-full py-2 bg-slate-800 rounded text-sm"><Globe size={16} className="mr-2" /> {lang === 'en' ? '中文' : 'English'}</button>
+              <button onClick={handleLogout} className="flex items-center justify-center w-full py-2 bg-red-900/30 text-red-400 rounded text-sm"><LogOut size={16} className="mr-2" /> {t('logout')}</button>
           </div>
         </aside>
 
-        {/* Main Area */}
-        <main className="flex-1 overflow-hidden flex flex-col relative w-full">
-          <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 z-10 flex-shrink-0">
-              <div className="flex items-center">
-                  <button onClick={toggleMobileMenu} className="mr-4 md:hidden text-gray-600 hover:text-blue-600">
-                      <Menu size={24} />
-                  </button>
-                  <h2 className="text-lg md:text-2xl font-bold text-gray-800 capitalize truncate max-w-[200px] md:max-w-none">
-                      {currentView === 'quote-editor' ? (editingQuote ? t('edit') : t('newQuote')) : t(currentView as any) || currentView}
-                  </h2>
-              </div>
-              <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                     <div className="text-right hidden md:block">
-                         <p className="text-sm font-bold text-gray-700">{localStorage.getItem('user_fullName') || localStorage.getItem('username') || 'Admin'}</p>
-                         <p className="text-xs text-green-500">Online</p>
-                     </div>
-                     <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
-                        {(localStorage.getItem('username') || 'A')[0].toUpperCase()}
-                     </div>
-                  </div>
-              </div>
-          </header>
-
-          <div className="flex-1 overflow-auto p-4 md:p-8 bg-gray-50 w-full">
-              {renderContent()}
-          </div>
+        <main className="flex-1 flex flex-col w-full overflow-hidden">
+           <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 z-10 flex-shrink-0">
+               <div className="flex items-center">
+                   <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden mr-4"><Menu/></button>
+                   <h2 className="text-xl font-bold text-gray-800">{t(currentView as any) || currentView}</h2>
+               </div>
+           </header>
+           <div className="flex-1 overflow-auto p-4 md:p-8">{renderContent()}</div>
         </main>
       </div>
 
       {printQuote && (
-          <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1, overflow: 'visible' }}>
-              <InvoiceTemplate ref={printRef} quote={printQuote} settings={settings} mode="generate" />
+          <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1 }}>
+              <InvoiceTemplate ref={printQuoteRef} quote={printQuote} settings={settings} mode="generate" />
+          </div>
+      )}
+      {printContract && (
+          <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1 }}>
+              <ContractTemplate ref={printContractRef} contract={printContract} settings={settings.domestic} mode="generate" />
           </div>
       )}
     </>
@@ -630,298 +465,279 @@ export default function App() {
 }
 
 const SidebarItem = ({ icon, label, active, onClick }: any) => (
-    <button 
-        onClick={onClick}
-        className={`flex items-center w-full px-4 py-3 rounded-lg transition-all ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
-    >
-        <span className="mr-3">{icon}</span>
-        <span className="font-medium">{label}</span>
+    <button onClick={onClick} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`}>
+        <span className="mr-3">{icon}</span><span className="font-medium">{label}</span>
     </button>
 );
 
-const Dashboard = ({ quotes, products, customers, onCreateQuote, t }: any) => {
-    return (
-        <div className="space-y-6">
-             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-                <StatCard label={t('totalQuotes')} value={quotes.length} icon={<FileText className="text-blue-500" />} />
-                <StatCard label={t('customers')} value={customers.length} icon={<Users className="text-green-500" />} />
-                <StatCard label={t('products')} value={products.length} icon={<Package className="text-orange-500" />} />
-             </div>
-
-             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 md:p-8 text-white flex flex-col md:flex-row justify-between items-center shadow-lg space-y-4 md:space-y-0">
-                <div className="text-center md:text-left">
-                    <h3 className="text-xl md:text-2xl font-bold mb-2">{t('startQuoteTitle')}</h3>
-                    <p className="text-blue-100 opacity-90">{t('startQuoteDesc')}</p>
-                </div>
-                <button onClick={onCreateQuote} className="bg-white text-blue-600 px-6 py-3 rounded-lg font-bold shadow hover:bg-gray-100 transition w-full md:w-auto">
-                    + {t('newQuote')}
-                </button>
-             </div>
-
-             <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
-                 <h3 className="font-bold text-gray-800 mb-4">{t('recentActivity')}</h3>
-                 {quotes.length === 0 ? (
-                     <p className="text-gray-400 text-center py-8">{t('noQuotes')}</p>
-                 ) : (
-                     <div className="space-y-3">
-                         {quotes.slice(0, 5).map((q: Quote) => (
-                             <div key={q.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded border-b border-gray-50 last:border-0">
-                                 <div>
-                                     <span className="font-bold text-gray-700 block text-sm md:text-base">{q.number}</span>
-                                     <span className="text-xs md:text-sm text-gray-500">{q.customerSnapshot?.name || 'Unknown Customer'}</span>
-                                     {q.createdBy && <span className="text-[10px] text-gray-400 block">By: {q.createdBy}</span>}
-                                 </div>
-                                 <div className="text-right">
-                                     <span className="block font-bold text-sm md:text-base">{q.currency} {q.total.toFixed(2)}</span>
-                                     <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">{q.status}</span>
-                                 </div>
-                             </div>
-                         ))}
-                     </div>
-                 )}
-             </div>
+const Dashboard = ({ quotes, contracts, t }: any) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow border">
+            <h3 className="font-bold text-gray-700 mb-2">{t('quotes')}</h3>
+            <p className="text-3xl font-bold">{quotes.length}</p>
         </div>
-    );
-};
-
-const StatCard = ({ label, value, icon }: any) => (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center">
-        <div className="p-4 bg-gray-50 rounded-full mr-4">{icon}</div>
-        <div>
-            <p className="text-gray-500 text-sm uppercase font-bold">{label}</p>
-            <p className="text-2xl font-bold text-gray-800">{value}</p>
+        <div className="bg-white p-6 rounded-xl shadow border">
+            <h3 className="font-bold text-gray-700 mb-2">{t('contracts')}</h3>
+            <p className="text-3xl font-bold">{contracts.length}</p>
         </div>
     </div>
 );
 
 const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => {
     const [searchTerm, setSearchTerm] = useState('');
-    
-    const filtered = quotes.filter((q: Quote) => 
+
+    const filteredQuotes = quotes.filter((q: Quote) => 
         q.number.toLowerCase().includes(searchTerm.toLowerCase()) || 
         (q.customerSnapshot?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                    <input 
-                        className="w-full pl-10 pr-4 py-2 border rounded-lg" 
-                        placeholder={t('search')}
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <button onClick={onNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow w-full md:w-auto justify-center">
-                    <Plus size={20} className="mr-2" /> {t('newQuote')}
-                </button>
-            </div>
+        <div className="space-y-4">
+             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                 <div className="relative w-full md:w-80">
+                     <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                     <input 
+                         className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                         placeholder={`${t('search')} ${t('number')} / ${t('company')}`}
+                         value={searchTerm}
+                         onChange={e => setSearchTerm(e.target.value)}
+                     />
+                 </div>
+                 <button onClick={onNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center w-full md:w-auto justify-center">
+                     <Plus size={16} className="mr-2"/> {t('newQuote')}
+                 </button>
+             </div>
+             <div className="bg-white rounded shadow overflow-hidden">
+                 <table className="w-full text-sm">
+                     <thead className="bg-gray-50">
+                         <tr>
+                             <th className="p-3 text-left">{t('number')}</th>
+                             <th className="p-3 text-left">{t('date')}</th>
+                             <th className="p-3 text-left">{t('createdTime')}</th>
+                             <th className="p-3 text-left">{t('createdUser')}</th>
+                             <th className="p-3 text-left">{t('billTo')}</th>
+                             <th className="p-3 text-right">{t('amount')}</th>
+                             <th className="p-3 text-right">{t('actions')}</th>
+                         </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                         {filteredQuotes.map((q: Quote) => (
+                             <tr key={q.id} className="hover:bg-gray-50">
+                                 <td className="p-3 font-medium text-blue-600">{q.number}</td>
+                                 <td className="p-3">{q.date}</td>
+                                 <td className="p-3 text-xs text-gray-500">{q.createdAt}</td>
+                                 <td className="p-3 text-xs text-gray-500">{q.createdBy || 'System'}</td>
+                                 <td className="p-3">{q.customerSnapshot?.name}</td>
+                                 <td className="p-3 text-right">{q.currency} {q.total.toFixed(2)}</td>
+                                 <td className="p-3 text-right space-x-2">
+                                     <button onClick={() => onExport(q, 'pdf')} disabled={isGenerating} className="text-green-600"><Download size={18}/></button>
+                                     <button onClick={() => onEdit(q)} className="text-blue-600"><Edit size={18}/></button>
+                                     <button onClick={() => onDelete(q.id)} className="text-red-500"><Trash2 size={18}/></button>
+                                 </td>
+                             </tr>
+                         ))}
+                         {filteredQuotes.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-gray-400">{t('noData')}</td></tr>}
+                     </tbody>
+                 </table>
+             </div>
+        </div>
+    );
+};
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 text-left">
-                            <tr>
-                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('number')}</th>
-                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('date')}</th>
-                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('customer')}</th>
-                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('amount')}</th>
-                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdBy')}</th>
-                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdAt')}</th>
-                                <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('status')}</th>
-                                <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {filtered.map((q: Quote) => (
-                                <tr key={q.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-4 font-medium text-blue-600">{q.number}</td>
-                                    <td className="p-4 text-gray-600 text-sm">{q.date}</td>
-                                    <td className="p-4 text-gray-800 font-medium">{q.customerSnapshot?.name || 'Unknown'}</td>
-                                    <td className="p-4 font-bold text-gray-700">{q.currency} {q.total.toFixed(2)}</td>
-                                    <td className="p-4 text-xs text-gray-500">{q.createdBy || '-'}</td>
-                                    <td className="p-4 text-xs text-gray-500 whitespace-nowrap">{q.createdAt || '-'}</td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 text-xs rounded-full ${
-                                            q.status === 'Accepted' ? 'bg-green-100 text-green-700' : 
-                                            q.status === 'Sent' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                                        }`}>
-                                            {q.status}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-right space-x-2">
-                                        <button 
-                                            onClick={() => onExport(q, 'image')} 
-                                            className="p-2 text-orange-500 hover:bg-orange-50 rounded transition-colors" 
-                                            title={t('exportImage')}
-                                            disabled={isGenerating}
-                                        >
-                                            <ImageIcon size={18} />
-                                        </button>
-                                        <button 
-                                            onClick={() => onExport(q, 'pdf')} 
-                                            className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors" 
-                                            title={t('exportPdf')}
-                                            disabled={isGenerating}
-                                        >
-                                            {isGenerating ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
-                                        </button>
-                                        <button onClick={() => onEdit(q)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                                            <Edit size={18} />
-                                        </button>
-                                        <button onClick={() => onDelete(q.id)} className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors">
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {filtered.length === 0 && (
-                                <tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+const ContractsList = ({ contracts, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => {
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredContracts = contracts.filter((c: Contract) => 
+        c.contractNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (c.customerSnapshot?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <div className="space-y-4">
+             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                 <div className="relative w-full md:w-80">
+                     <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                     <input 
+                         className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                         placeholder={`${t('search')} ${t('contractNumber')} / ${t('company')}`}
+                         value={searchTerm}
+                         onChange={e => setSearchTerm(e.target.value)}
+                     />
+                 </div>
+                 <button onClick={onNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center w-full md:w-auto justify-center"><Plus size={16} className="mr-2"/> {t('new')}</button>
+             </div>
+             <div className="bg-white rounded shadow overflow-hidden">
+                 <table className="w-full text-sm">
+                     <thead className="bg-gray-50">
+                         <tr>
+                             <th className="p-3 text-left">{t('contractNumber')}</th>
+                             <th className="p-3 text-left">{t('createdTime')}</th>
+                             <th className="p-3 text-left">{t('buyer')}</th>
+                             <th className="p-3 text-right">{t('total')} (CNY)</th>
+                             <th className="p-3 text-right">{t('actions')}</th>
+                         </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                         {filteredContracts.map((c: Contract) => (
+                             <tr key={c.id} className="hover:bg-gray-50">
+                                 <td className="p-3 font-medium text-blue-600">{c.contractNumber}</td>
+                                 <td className="p-3">{c.createdAt || c.date}</td>
+                                 <td className="p-3">{c.customerSnapshot?.name}</td>
+                                 <td className="p-3 text-right font-bold">￥{c.totalAmount.toFixed(2)}</td>
+                                 <td className="p-3 text-right space-x-2">
+                                     <button onClick={() => onExport(c, 'pdf')} disabled={isGenerating} className="text-green-600"><Download size={18}/></button>
+                                     <button onClick={() => onEdit(c)} className="text-blue-600"><Edit size={18}/></button>
+                                     <button onClick={() => onDelete(c.id)} className="text-red-500"><Trash2 size={18}/></button>
+                                 </td>
+                             </tr>
+                         ))}
+                         {filteredContracts.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400">{t('noData')}</td></tr>}
+                     </tbody>
+                 </table>
+             </div>
         </div>
     );
 };
 
 const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
     const [isEditing, setIsEditing] = useState(false);
-    const [currentCustomer, setCurrentCustomer] = useState<Partial<Customer>>({});
+    const [current, setCurrent] = useState<Partial<Customer>>({});
     const [searchTerm, setSearchTerm] = useState('');
+    const [regionFilter, setRegionFilter] = useState<CustomerRegion | 'All'>('All');
+
+    const handleEdit = (c: Customer) => { setCurrent(c); setIsEditing(true); };
+    // Updated: Default to International
+    const handleNew = () => { setCurrent({ id: generateId(), region: 'International' }); setIsEditing(true); }; 
 
     const filtered = customers.filter((c: Customer) => 
-        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (c.contactPerson || '').toLowerCase().includes(searchTerm.toLowerCase())
+        (regionFilter === 'All' || c.region === regionFilter) &&
+        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    const handleEdit = (c: Customer) => {
-        setCurrentCustomer(c);
-        setIsEditing(true);
-    };
-
-    const handleNew = () => {
-        setCurrentCustomer({ id: generateId() });
-        setIsEditing(true);
-    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // CHANGED: Validation logic allow Name OR Contact
-        if(currentCustomer.name || currentCustomer.contactPerson) {
-            onSave(currentCustomer as Customer);
-            setIsEditing(false);
-        } else {
-            alert(t('customerValidation'));
-        }
+        onSave(current as Customer);
+        setIsEditing(false);
     };
 
     return (
         <div className="space-y-6">
             {isEditing ? (
-                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                     <h3 className="font-bold text-lg mb-4">{currentCustomer.id ? t('edit') : t('addCustomer')}</h3>
+                 <div className="bg-white p-6 rounded-xl shadow border">
+                     <h3 className="font-bold text-lg mb-4">{current.id ? t('edit') : t('new')} {t('customers')}</h3>
                      <form onSubmit={handleSubmit} className="space-y-4">
+                         {/* Region Switcher - Swapped Order */}
+                         <div className="flex space-x-4 mb-4">
+                             <label className="flex items-center space-x-2 cursor-pointer">
+                                 <input type="radio" name="region" checked={current.region === 'International'} onChange={() => setCurrent({...current, region: 'International'})} />
+                                 <span className="font-bold text-gray-700">{t('international')}</span>
+                             </label>
+                             <label className="flex items-center space-x-2 cursor-pointer">
+                                 <input type="radio" name="region" checked={current.region === 'Domestic'} onChange={() => setCurrent({...current, region: 'Domestic'})} />
+                                 <span className="font-bold text-gray-700">{t('domestic')}</span>
+                             </label>
+                         </div>
+                         
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase">{t('company')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.name || ''} onChange={e => setCurrentCustomer({...currentCustomer, name: e.target.value})} placeholder="Required if Contact is empty" />
+                                <input className="w-full p-2 border rounded" value={current.name || ''} onChange={e => setCurrent({...current, name: e.target.value})} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase">{t('contact')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.contactPerson || ''} onChange={e => setCurrentCustomer({...currentCustomer, contactPerson: e.target.value})} placeholder="Required if Company is empty" />
+                                <input className="w-full p-2 border rounded" value={current.contactPerson || ''} onChange={e => setCurrent({...current, contactPerson: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('email')}</label>
-                                <input type="email" className="w-full p-2 border rounded" value={currentCustomer.email || ''} onChange={e => setCurrentCustomer({...currentCustomer, email: e.target.value})} />
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Email</label>
+                                <input className="w-full p-2 border rounded" value={current.email || ''} onChange={e => setCurrent({...current, email: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('phone')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.phone || ''} onChange={e => setCurrentCustomer({...currentCustomer, phone: e.target.value})} />
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
+                                <input className="w-full p-2 border rounded" value={current.phone || ''} onChange={e => setCurrent({...current, phone: e.target.value})} />
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('address')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.address || ''} onChange={e => setCurrentCustomer({...currentCustomer, address: e.target.value})} />
+                            <div className="md:col-span-2">
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Address</label>
+                                <input className="w-full p-2 border rounded" value={current.address || ''} onChange={e => setCurrent({...current, address: e.target.value})} />
                             </div>
-                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('city')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.city || ''} onChange={e => setCurrentCustomer({...currentCustomer, city: e.target.value})} />
-                            </div>
-                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('country')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.country || ''} onChange={e => setCurrentCustomer({...currentCustomer, country: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('zip')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.zipCode || ''} onChange={e => setCurrentCustomer({...currentCustomer, zipCode: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('taxId')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.taxId || ''} onChange={e => setCurrentCustomer({...currentCustomer, taxId: e.target.value})} />
-                            </div>
-                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('source')}</label>
-                                <input className="w-full p-2 border rounded" value={currentCustomer.source || ''} onChange={e => setCurrentCustomer({...currentCustomer, source: e.target.value})} />
-                            </div>
+                            
+                            {/* Conditional Fields */}
+                            {current.region === 'Domestic' ? (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase text-blue-600">{t('taxId')}</label>
+                                        <input className="w-full p-2 border rounded bg-blue-50" value={current.taxId || ''} onChange={e => setCurrent({...current, taxId: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase text-blue-600">{t('bankName')}</label>
+                                        <input className="w-full p-2 border rounded bg-blue-50" value={current.bankName || ''} onChange={e => setCurrent({...current, bankName: e.target.value})} />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase text-blue-600">{t('bankAccount')}</label>
+                                        <input className="w-full p-2 border rounded bg-blue-50" value={current.bankAccount || ''} onChange={e => setCurrent({...current, bankAccount: e.target.value})} />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase">Country</label>
+                                        <input className="w-full p-2 border rounded" value={current.country || ''} onChange={e => setCurrent({...current, country: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase">City</label>
+                                        <input className="w-full p-2 border rounded" value={current.city || ''} onChange={e => setCurrent({...current, city: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase">Zip Code</label>
+                                        <input className="w-full p-2 border rounded" value={current.zipCode || ''} onChange={e => setCurrent({...current, zipCode: e.target.value})} />
+                                    </div>
+                                </>
+                            )}
                          </div>
-                         <div className="flex justify-end space-x-3">
-                             <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">{t('cancel')}</button>
-                             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700">{t('save')}</button>
+                         <div className="flex justify-end space-x-2">
+                             <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded">{t('cancel')}</button>
+                             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">{t('save')}</button>
                          </div>
                      </form>
                  </div>
             ) : (
                 <>
-                    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                         <div className="relative w-full md:w-64">
-                            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                            <input 
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg" 
-                                placeholder={t('search')}
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow w-full md:w-auto justify-center">
-                            <Plus size={20} className="mr-2" /> {t('addCustomer')}
-                        </button>
+                    <div className="flex justify-between items-center">
+                         <div className="flex items-center space-x-4">
+                             <input className="p-2 border rounded w-64" placeholder={t('search')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                             <select className="p-2 border rounded" value={regionFilter} onChange={e => setRegionFilter(e.target.value as any)}>
+                                 <option value="All">All Regions</option>
+                                 <option value="Domestic">{t('domestic')}</option>
+                                 <option value="International">{t('international')}</option>
+                             </select>
+                         </div>
+                         <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center"><Plus size={16} className="mr-2"/> {t('add')} {t('customers')}</button>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 text-left">
-                                    <tr>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('company')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('contact')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('country')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('email')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdBy')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('createdAt')}</th>
-                                        <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
+                    <div className="bg-white rounded shadow overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="p-3 text-left">{t('customerRegion')}</th>
+                                    <th className="p-3 text-left">{t('company')}</th>
+                                    <th className="p-3 text-left">{t('contact')}</th>
+                                    <th className="p-3 text-left">{t('taxId')} / Country</th>
+                                    <th className="p-3 text-right">{t('actions')}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {filtered.map(c => (
+                                    <tr key={c.id} className="hover:bg-gray-50">
+                                        <td className="p-3"><span className={`text-xs px-2 py-1 rounded ${c.region === 'Domestic' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{c.region || 'International'}</span></td>
+                                        <td className="p-3 font-bold">{c.name}</td>
+                                        <td className="p-3">{c.contactPerson}</td>
+                                        <td className="p-3">{c.region === 'Domestic' ? c.taxId : c.country}</td>
+                                        <td className="p-3 text-right space-x-2">
+                                            <button onClick={() => handleEdit(c)} className="text-blue-600"><Edit size={18}/></button>
+                                            <button onClick={() => onDelete(c.id)} className="text-red-500"><Trash2 size={18}/></button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {filtered.map((c: Customer) => (
-                                        <tr key={c.id} className="hover:bg-gray-50">
-                                            <td className="p-4 font-bold text-gray-700">{c.name || '-'}</td>
-                                            <td className="p-4">{c.contactPerson || '-'}</td>
-                                            <td className="p-4">{c.country}</td>
-                                            <td className="p-4 text-gray-500 text-sm">{c.email}</td>
-                                            <td className="p-4 text-gray-500 text-xs">{c.createdBy || '-'}</td>
-                                            <td className="p-4 text-gray-500 text-xs whitespace-nowrap">{c.createdAt || '-'}</td>
-                                            <td className="p-4 text-right">
-                                                <button onClick={() => handleEdit(c)} className="p-2 text-blue-600 hover:bg-blue-50 rounded mr-2"><Edit size={18} /></button>
-                                                <button onClick={() => onDelete(c.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18} /></button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filtered.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-400">{t('noQuotes')}</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </>
             )}
@@ -930,158 +746,160 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
 };
 
 const SettingsManager = ({ settings, onSave, t }: any) => {
-    const [formData, setFormData] = useState<CompanySettings>(settings);
-
-    // Sync state when settings prop changes (e.g. after async load)
-    useEffect(() => {
-        if(settings) {
-            setFormData(settings);
+    // SAFETY: Ensure domestic object exists before rendering to prevent white screen on legacy data
+    const safeSettings = {
+        ...settings,
+        domestic: settings.domestic || {
+             name: '', address: '', contact: '', phone: '', fax: '',
+             taxId: '', bankName: '', bankAccount: '', stampDataUrl: '',
+             contractTerms: '', contractPrefix: 'ULHTZH'
         }
-    }, [settings]);
-
-    if (!formData) return null;
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
+
+    const [data, setData] = useState<CompanySettings>(safeSettings);
+    const [tab, setTab] = useState<'intl' | 'domestic'>('intl');
+
+    const handleChange = (field: string, val: string) => setData({...data, [field]: val});
     
-    const handleRateChange = (currency: string, value: string) => {
-        setFormData(prev => ({
-            ...prev,
-            exchangeRates: {
-                ...prev.exchangeRates,
-                [currency]: parseFloat(value) || 0
-            }
-        }));
+    // Nested update for domestic
+    const handleDomesticChange = (field: keyof typeof data.domestic, val: string) => {
+        setData({ ...data, domestic: { ...data.domestic, [field]: val }});
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'logoDataUrl' | 'stampDataUrl') => {
+    const handleImage = (e: any, field: 'logoDataUrl' | 'stampDataUrl', isDomestic = false) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setFormData(prev => ({ ...prev, [field]: reader.result as string }));
+                if(isDomestic) {
+                    setData({...data, domestic: {...data.domestic, stampDataUrl: reader.result as string}});
+                } else {
+                    setData({...data, [field]: reader.result as string});
+                }
             };
             reader.readAsDataURL(file);
         }
     };
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-4xl">
-            <h3 className="font-bold text-lg mb-6">{t('companyProfile')}</h3>
-            <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                        <h4 className="font-bold text-gray-500 text-xs uppercase border-b pb-2">Basic Info</h4>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('company')}</label>
-                            <input name="name" className="w-full p-2 border rounded" value={formData.name || ''} onChange={handleChange} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('address')}</label>
-                            <input name="address" className="w-full p-2 border rounded" value={formData.address || ''} onChange={handleChange} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('city')}</label>
-                                <input name="city" className="w-full p-2 border rounded" value={formData.city || ''} onChange={handleChange} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('country')}</label>
-                                <input name="country" className="w-full p-2 border rounded" value={formData.country || ''} onChange={handleChange} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('phone')}</label>
-                                <input name="phone" className="w-full p-2 border rounded" value={formData.phone || ''} onChange={handleChange} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('email')}</label>
-                                <input name="email" className="w-full p-2 border rounded" value={formData.email || ''} onChange={handleChange} />
-                            </div>
-                        </div>
-                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('quotePrefix')}</label>
-                            <input name="quotePrefix" className="w-full p-2 border rounded" value={formData.quotePrefix || ''} onChange={handleChange} />
-                        </div>
-                    </div>
+        <div className="bg-white p-6 rounded-xl shadow border max-w-4xl">
+            <div className="flex border-b mb-6">
+                <button 
+                    className={`px-6 py-3 font-bold ${tab === 'intl' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+                    onClick={() => setTab('intl')}
+                >
+                    International Profile
+                </button>
+                <button 
+                    className={`px-6 py-3 font-bold ${tab === 'domestic' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
+                    onClick={() => setTab('domestic')}
+                >
+                    {t('domesticInfo')} & {t('contractTerms')}
+                </button>
+            </div>
 
+            <form onSubmit={e => { e.preventDefault(); onSave(data); }}>
+                {tab === 'intl' ? (
+                    <div className="space-y-6">
+                         <h4 className="font-bold text-blue-600">International Profile (For Quotes)</h4>
+
+                         {/* Logo & Stamp */}
+                         <div className="grid grid-cols-2 gap-6">
+                             <div>
+                                 <label className="text-xs font-bold text-gray-500 block mb-2">Company Logo</label>
+                                 <div className="flex items-center space-x-4">
+                                      {data.logoDataUrl && <img src={data.logoDataUrl} className="h-12 object-contain border p-1" />}
+                                      <input type="file" accept="image/*" onChange={e => handleImage(e, 'logoDataUrl')} className="text-sm" />
+                                 </div>
+                             </div>
+                             <div>
+                                 <label className="text-xs font-bold text-gray-500 block mb-2">Company Stamp / Signature</label>
+                                 <div className="flex items-center space-x-4">
+                                      {data.stampDataUrl && <img src={data.stampDataUrl} className="h-12 object-contain border p-1" />}
+                                      <input type="file" accept="image/*" onChange={e => handleImage(e, 'stampDataUrl')} className="text-sm" />
+                                 </div>
+                             </div>
+                         </div>
+
+                         {/* Basic Info */}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div><label className="text-xs font-bold text-gray-500">Company Name</label><input className="w-full p-2 border rounded" value={data.name} onChange={e => handleChange('name', e.target.value)}/></div>
+                             <div><label className="text-xs font-bold text-gray-500">Address</label><input className="w-full p-2 border rounded" value={data.address} onChange={e => handleChange('address', e.target.value)}/></div>
+                             <div><label className="text-xs font-bold text-gray-500">City</label><input className="w-full p-2 border rounded" value={data.city} onChange={e => handleChange('city', e.target.value)}/></div>
+                             <div><label className="text-xs font-bold text-gray-500">Country</label><input className="w-full p-2 border rounded" value={data.country} onChange={e => handleChange('country', e.target.value)}/></div>
+                             <div><label className="text-xs font-bold text-gray-500">Phone</label><input className="w-full p-2 border rounded" value={data.phone} onChange={e => handleChange('phone', e.target.value)}/></div>
+                             <div><label className="text-xs font-bold text-gray-500">Email</label><input className="w-full p-2 border rounded" value={data.email} onChange={e => handleChange('email', e.target.value)}/></div>
+                             <div><label className="text-xs font-bold text-gray-500 text-blue-600">Quote Number Prefix</label><input className="w-full p-2 border rounded font-mono" value={data.quotePrefix} onChange={e => handleChange('quotePrefix', e.target.value)} placeholder="e.g. LH-"/></div>
+                         </div>
+
+                         {/* Product Units Configuration */}
+                         <div>
+                             <label className="text-xs font-bold text-gray-500">Product Units (Comma separated)</label>
+                             <input 
+                                className="w-full p-2 border rounded text-sm" 
+                                value={data.productUnits || ''} 
+                                onChange={e => handleChange('productUnits', e.target.value)}
+                                placeholder="PCS, SET, BOX, KG..."
+                             />
+                         </div>
+
+                         {/* Bank Info */}
+                         <div><label className="text-xs font-bold text-gray-500">Bank Info (Appears on Quote)</label><textarea rows={3} className="w-full p-2 border rounded font-mono text-sm" value={data.bankInfo} onChange={e => handleChange('bankInfo', e.target.value)}/></div>
+
+                         {/* Exchange Rates */}
+                         <div className="bg-gray-50 p-4 rounded border">
+                             <h5 className="font-bold text-gray-700 text-sm mb-3 flex items-center"><Coins size={16} className="mr-2"/> Exchange Rates (Base: 1 USD)</h5>
+                             <div className="grid grid-cols-3 gap-4">
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500">USD to CNY</label>
+                                     <input type="number" step="0.01" className="w-full p-2 border rounded" value={data.exchangeRates?.['CNY'] || 7.2} onChange={e => setData({...data, exchangeRates: {...data.exchangeRates, 'CNY': parseFloat(e.target.value)}})}/>
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500">USD to EUR</label>
+                                     <input type="number" step="0.01" className="w-full p-2 border rounded" value={data.exchangeRates?.['EUR'] || 0.92} onChange={e => setData({...data, exchangeRates: {...data.exchangeRates, 'EUR': parseFloat(e.target.value)}})}/>
+                                 </div>
+                                  <div>
+                                     <label className="text-xs font-bold text-gray-500">USD to GBP</label>
+                                     <input type="number" step="0.01" className="w-full p-2 border rounded" value={data.exchangeRates?.['GBP'] || 0.79} onChange={e => setData({...data, exchangeRates: {...data.exchangeRates, 'GBP': parseFloat(e.target.value)}})}/>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
+                ) : (
                     <div className="space-y-4">
-                        <h4 className="font-bold text-gray-500 text-xs uppercase border-b pb-2">Images & Banking</h4>
+                        <h4 className="font-bold text-orange-600">国内供方信息 (用于购销合同)</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="text-xs font-bold text-gray-500">公司名称</label><input className="w-full p-2 border rounded" value={data.domestic?.name || ''} onChange={e => handleDomesticChange('name', e.target.value)}/></div>
+                            <div><label className="text-xs font-bold text-gray-500">联系人 (代理人)</label><input className="w-full p-2 border rounded" value={data.domestic?.contact || ''} onChange={e => handleDomesticChange('contact', e.target.value)}/></div>
+                            <div><label className="text-xs font-bold text-gray-500">电话</label><input className="w-full p-2 border rounded" value={data.domestic?.phone || ''} onChange={e => handleDomesticChange('phone', e.target.value)}/></div>
+                            <div><label className="text-xs font-bold text-gray-500">传真</label><input className="w-full p-2 border rounded" value={data.domestic?.fax || ''} onChange={e => handleDomesticChange('fax', e.target.value)}/></div>
+                            <div className="md:col-span-2"><label className="text-xs font-bold text-gray-500">地址</label><input className="w-full p-2 border rounded" value={data.domestic?.address || ''} onChange={e => handleDomesticChange('address', e.target.value)}/></div>
+                            <div className="md:col-span-2"><label className="text-xs font-bold text-gray-500">纳税人识别号</label><input className="w-full p-2 border rounded" value={data.domestic?.taxId || ''} onChange={e => handleDomesticChange('taxId', e.target.value)}/></div>
+                            <div><label className="text-xs font-bold text-gray-500">开户行</label><input className="w-full p-2 border rounded" value={data.domestic?.bankName || ''} onChange={e => handleDomesticChange('bankName', e.target.value)}/></div>
+                            <div><label className="text-xs font-bold text-gray-500">账号</label><input className="w-full p-2 border rounded" value={data.domestic?.bankAccount || ''} onChange={e => handleDomesticChange('bankAccount', e.target.value)}/></div>
+                            <div><label className="text-xs font-bold text-gray-500 text-blue-600">合同编号前缀</label><input className="w-full p-2 border rounded font-mono" value={data.domestic?.contractPrefix || ''} onChange={e => handleDomesticChange('contractPrefix', e.target.value)} placeholder="e.g. ULHTZH"/></div>
+                        </div>
                         
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{t('logoUrl')}</label>
-                            <div className="flex items-center space-x-4">
-                                <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
-                                    {formData.logoDataUrl ? (
-                                        <img src={formData.logoDataUrl} alt="Logo" className="w-full h-full object-contain" />
-                                    ) : (
-                                        <span className="text-gray-400 text-xs">No Logo</span>
-                                    )}
-                                </div>
-                                <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100 transition-colors text-sm font-medium">
-                                    {t('uploadImage')}
-                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoDataUrl')} />
-                                </label>
-                            </div>
+                             <label className="text-xs font-bold text-gray-500">合同公章 (用于合同盖章)</label>
+                             <div className="flex items-center space-x-4">
+                                 {data.domestic?.stampDataUrl && <img src={data.domestic.stampDataUrl} className="h-16" />}
+                                 <input type="file" onChange={e => handleImage(e, 'stampDataUrl', true)} />
+                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{t('stampUrl')}</label>
-                            <div className="flex items-center space-x-4">
-                                <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50">
-                                    {formData.stampDataUrl ? (
-                                        <img src={formData.stampDataUrl} alt="Stamp" className="w-full h-full object-contain" />
-                                    ) : (
-                                        <span className="text-gray-400 text-xs">No Stamp</span>
-                                    )}
-                                </div>
-                                <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100 transition-colors text-sm font-medium">
-                                    {t('uploadImage')}
-                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'stampDataUrl')} />
-                                </label>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('bankInfo')}</label>
-                            <textarea name="bankInfo" rows={5} className="w-full p-2 border rounded font-mono text-sm" value={formData.bankInfo || ''} onChange={handleChange} />
+                        <div className="pt-4 border-t">
+                            <label className="text-xs font-bold text-gray-500 block mb-2">{t('contractTerms')} (默认模板)</label>
+                            <textarea 
+                                className="w-full p-4 border rounded h-48 font-serif text-sm" 
+                                value={data.domestic?.contractTerms || ''} 
+                                onChange={e => handleDomesticChange('contractTerms', e.target.value)}
+                            />
                         </div>
                     </div>
-                </div>
-
-                {/* Currency & Exchange Rates Section */}
-                <div className="pt-4 border-t">
-                    <h4 className="font-bold text-gray-500 text-xs uppercase border-b pb-2 mb-4 flex items-center">
-                        <Coins size={14} className="mr-2"/> {t('currencySettings')}
-                    </h4>
-                    
-                    <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                        <p className="text-sm text-blue-800 font-medium mb-1">{t('exchangeRates')}</p>
-                        <p className="text-xs text-blue-600">{t('ratesDesc')}</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {['CNY', 'EUR', 'GBP'].map(curr => (
-                            <div key={curr}>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">1 USD = ? {curr}</label>
-                                <input 
-                                    type="number" 
-                                    step="0.0001"
-                                    className="w-full p-2 border rounded font-mono" 
-                                    value={formData.exchangeRates?.[curr] || ''} 
-                                    onChange={(e) => handleRateChange(curr, e.target.value)} 
-                                />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="pt-4 border-t flex justify-end">
-                    <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition font-medium">
-                        {t('saveSettings')}
-                    </button>
+                )}
+                <div className="mt-6 flex justify-end">
+                    <button className="bg-blue-600 text-white px-6 py-2 rounded">{t('save')}</button>
                 </div>
             </form>
         </div>
