@@ -252,7 +252,6 @@ export default function App() {
       setBrands(b);
       
       if (s) {
-          // SAFETY FIX: Polyfill domestic settings if missing from DB (legacy data)
           const defaultSettings = storageService.getSettings();
           const mergedSettings = {
               ...defaultSettings,
@@ -286,33 +285,93 @@ export default function App() {
   // --- Quote Actions ---
   const handleSaveQuote = async (quote: Quote) => {
     await api.saveQuote(quote);
-    await loadData(); 
+    // OPTIMIZED: Only fetch quotes
+    const updatedQuotes = await api.getQuotes();
+    const sortedQuotes = updatedQuotes.sort((a: Quote, b: Quote) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setQuotes(sortedQuotes);
     setCurrentView('quotes');
     setEditingQuote(null);
   };
   const handleDeleteQuote = async (id: string) => {
-    if(confirm(t('delete') + '?')) { await api.deleteQuote(id); await loadData(); }
+    if(confirm(t('delete') + '?')) { 
+      await api.deleteQuote(id); 
+      setQuotes(quotes.filter(q => q.id !== id));
+    }
   };
 
   // --- Contract Actions ---
   const handleSaveContract = async (contract: Contract) => {
     await api.saveContract(contract);
-    await loadData();
+    // OPTIMIZED: Only fetch contracts
+    const updatedContracts = await api.getContracts();
+    const sortedContracts = updatedContracts.sort((a: Contract, b: Contract) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setContracts(sortedContracts);
     setCurrentView('contracts');
     setEditingContract(null);
   };
   const handleDeleteContract = async (id: string) => {
-    if(confirm(t('delete') + '?')) { await api.deleteContract(id); await loadData(); }
+    if(confirm(t('delete') + '?')) { 
+      await api.deleteContract(id); 
+      setContracts(contracts.filter(c => c.id !== id));
+    }
   };
 
-  // --- Generic Actions ---
-  const handleProductSave = async (p: Product) => { await api.saveProduct(p); await loadData(); };
-  const handleDeleteProduct = async (id: string) => { if(confirm(t('delete') + '?')) { await api.deleteProduct(id); await loadData(); }};
-  const handleCustomerSave = async (c: Customer) => { await api.saveCustomer(c); await loadData(); };
-  const handleDeleteCustomer = async (id: string) => { if(confirm(t('delete') + '?')) { await api.deleteCustomer(id); await loadData(); }};
-  const handleBrandSave = async (b: Brand) => { await api.saveBrand(b); await loadData(); };
-  const handleDeleteBrand = async (id: string) => { if(confirm(t('delete') + '?')) { await api.deleteBrand(id); await loadData(); }};
-  const handleSaveSettings = async (s: CompanySettings) => { await api.saveSettings(s); setSettings(s); alert(t('save') + ' Success!'); };
+  // --- Generic Actions (OPTIMIZED) ---
+  
+  // Product Save: Update Local State to avoid 10MB re-download
+  const handleProductSave = async (p: Product) => { 
+      await api.saveProduct(p);
+      setProducts(prev => {
+          const exists = prev.find(item => item.id === p.id);
+          // Manually add current date for visual feedback if new
+          const now = new Date().toISOString().split('T')[0];
+          const productWithMeta = { ...p, updatedAt: now, createdAt: exists ? exists.createdAt : now };
+          
+          if (exists) {
+              return prev.map(item => item.id === p.id ? productWithMeta : item);
+          }
+          return [productWithMeta, ...prev];
+      });
+  };
+  
+  const handleDeleteProduct = async (id: string) => { 
+      if(confirm(t('delete') + '?')) { 
+          await api.deleteProduct(id);
+          setProducts(prev => prev.filter(p => p.id !== id));
+      }
+  };
+
+  const handleCustomerSave = async (c: Customer) => { 
+      await api.saveCustomer(c);
+      const newCustomers = await api.getCustomers(); // Customers are small, safe to refetch
+      setCustomers(newCustomers);
+  };
+  
+  const handleDeleteCustomer = async (id: string) => { 
+      if(confirm(t('delete') + '?')) { 
+          await api.deleteCustomer(id); 
+          setCustomers(customers.filter(c => c.id !== id));
+      }
+  };
+
+  const handleBrandSave = async (b: Brand) => { 
+      await api.saveBrand(b); 
+      const newBrands = await api.getBrands();
+      setBrands(newBrands);
+  };
+  
+  const handleDeleteBrand = async (id: string) => { 
+      if(confirm(t('delete') + '?')) { 
+          await api.deleteBrand(id); 
+          setBrands(brands.filter(b => b.id !== id));
+      }
+  };
+
+  const handleSaveSettings = async (s: CompanySettings) => { 
+      await api.saveSettings(s); 
+      setSettings(s); 
+      alert(t('save') + ' Success!'); 
+  };
 
   // --- Export Logic ---
   const handleExport = async (doc: Quote | Contract, format: 'pdf' | 'image', type: 'quote' | 'contract') => {
@@ -889,7 +948,7 @@ const SettingsManager = ({ settings, onSave, t }: any) => {
                         </div>
 
                         <div className="pt-4 border-t">
-                            <label className="text-xs font-bold text-gray-500 block mb-2">{t('contractTerms')} (默认模板)</label>
+                            <label className="text-xs font-bold text-gray-500 block mb-2">{t('contractTerms')}</label>
                             <textarea 
                                 className="w-full p-4 border rounded h-48 font-serif text-sm" 
                                 value={data.domestic?.contractTerms || ''} 
