@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Currency, SupplierInfo, CompanySettings, Brand } from '../types';
-import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter, Download, Upload, Loader2, FileText, CheckSquare, Square } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter, Download, Upload, Loader2, FileText, CheckSquare, Square, User } from 'lucide-react';
 import { generateId } from '../services/api';
 import * as XLSX from 'xlsx';
 
@@ -25,6 +25,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     const [itemsPerPage, setItemsPerPage] = useState(30);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedBrand, setSelectedBrand] = useState('All');
+    const [selectedCreator, setSelectedCreator] = useState('All'); // New: Creator filter
 
     const [editingSuppliers, setEditingSuppliers] = useState<SupplierInfo[]>([]);
     
@@ -40,6 +41,12 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     // Derive units from settings or default to English standard units
     const unitsList = (settings.productUnits || 'PCS, SET, BOX, CTN, KG, M, ROLL, PACK, PAIR, UNIT').split(',').map(u => u.trim()).filter(Boolean);
 
+    // Get unique creators list
+    const creators = useMemo(() => {
+        const users = new Set(products.map(p => p.createdBy).filter(Boolean));
+        return Array.from(users) as string[];
+    }, [products]);
+
     // Filtering Logic
     const filtered = useMemo(() => {
         return products.filter((p: Product) => {
@@ -49,15 +56,16 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                   (p.brand || '').toLowerCase().includes(searchTerm.toLowerCase());
             
             const matchesBrand = selectedBrand === 'All' || p.brand === selectedBrand;
+            const matchesCreator = selectedCreator === 'All' || p.createdBy === selectedCreator;
             
-            return matchesSearch && matchesBrand;
+            return matchesSearch && matchesBrand && matchesCreator;
         });
-    }, [products, searchTerm, selectedBrand]);
+    }, [products, searchTerm, selectedBrand, selectedCreator]);
 
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedBrand, itemsPerPage]);
+    }, [searchTerm, selectedBrand, itemsPerPage, selectedCreator]);
 
     // Pagination Logic
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -262,7 +270,9 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                     Note: p.note,
                     Supplier: primarySupplier?.name || p.supplierName,
                     Cost: primarySupplier?.cost || p.cost,
-                    SupplierRef: primarySupplier?.reference || p.supplierReference
+                    SupplierRef: primarySupplier?.reference || p.supplierReference,
+                    CreatedBy: p.createdBy,
+                    CreatedTime: p.createdAt
                 };
                 grouped[brand].push(row);
             });
@@ -342,6 +352,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                  newP.id = existing.id;
                                  newP.imageDataUrl = existing.imageDataUrl;
                                  newP.createdAt = existing.createdAt;
+                                 newP.createdBy = existing.createdBy; // Preserve creator
                              }
                              onSave(newP);
                          }
@@ -732,7 +743,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                     onChange={e => setSearchTerm(e.target.value)}
                                 />
                             </div>
-                            <div className="relative min-w-[180px]">
+                            <div className="relative min-w-[140px]">
                                 <Filter className="absolute left-3 top-2.5 text-gray-400" size={16} />
                                 <select 
                                     className="w-full pl-10 pr-8 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white appearance-none cursor-pointer"
@@ -742,6 +753,19 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                     <option value="All">All Brands</option>
                                     {brands.map(b => (
                                         <option key={b.id} value={b.name}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="relative min-w-[140px]">
+                                <User className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                                <select 
+                                    className="w-full pl-10 pr-8 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white appearance-none cursor-pointer"
+                                    value={selectedCreator}
+                                    onChange={(e) => setSelectedCreator(e.target.value)}
+                                >
+                                    <option value="All">All Creators</option>
+                                    {creators.map(c => (
+                                        <option key={c} value={c}>{c}</option>
                                     ))}
                                 </select>
                             </div>
@@ -780,7 +804,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('sku')}</th>
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('name')}</th>
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase w-32 text-right">{t('price')}</th>
-                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('entryTime')}</th>
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('createdTime')}</th>
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase hidden lg:table-cell">{t('createdUser')}</th>
                                         <th className="py-2 px-3 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                                         {/* Image Last */}
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase w-16 text-center">Img</th>
@@ -822,9 +847,14 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                                 </div>
                                             </td>
 
-                                            {/* Entry Time */}
+                                            {/* Created Time */}
                                             <td className="py-2 px-3 hidden md:table-cell">
                                                 <span className="text-xs text-gray-500 whitespace-nowrap">{p.createdAt ? p.createdAt.split(' ')[0] : '-'}</span>
+                                            </td>
+                                            
+                                            {/* Created By */}
+                                            <td className="py-2 px-3 hidden lg:table-cell">
+                                                <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full">{p.createdBy || 'System'}</span>
                                             </td>
 
                                             {/* Actions */}
@@ -848,7 +878,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                             </td>
                                         </tr>
                                     )})}
-                                    {paginatedProducts.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>}
+                                    {paginatedProducts.length === 0 && <tr><td colSpan={9} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>}
                                 </tbody>
                             </table>
                         </div>
