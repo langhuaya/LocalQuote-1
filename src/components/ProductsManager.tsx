@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Currency, SupplierInfo, CompanySettings, Brand } from '../types';
-import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter, Download, Upload, Loader2, FileText, CheckSquare, Square, User } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter, Download, Upload, Loader2, FileText, CheckSquare, Square, User, Layers } from 'lucide-react';
 import { generateId } from '../services/api';
 import * as XLSX from 'xlsx';
 
@@ -37,6 +37,11 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     
     // Import state
     const [isImporting, setIsImporting] = useState(false);
+
+    // Bulk Create State
+    const [showBulkCreate, setShowBulkCreate] = useState(false);
+    const [bulkText, setBulkText] = useState('');
+    const [bulkBrand, setBulkBrand] = useState('');
 
     // Derive units from settings or default to English standard units
     const unitsList = (settings.productUnits || 'PCS, SET, BOX, CTN, KG, M, ROLL, PACK, PAIR, UNIT').split(',').map(u => u.trim()).filter(Boolean);
@@ -104,6 +109,54 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
         if (confirm(t('confirmBulkDelete'))) {
             selectedIds.forEach(id => onDelete(id));
             setSelectedIds([]);
+        }
+    };
+
+    const handleBulkCreate = () => {
+        if (!bulkBrand) {
+             alert(t('bulkBrandSelect'));
+             return;
+        }
+        
+        const lines = bulkText.split('\n');
+        let count = 0;
+        
+        lines.forEach(line => {
+            if(!line.trim()) return;
+            // Split by comma (english or chinese)
+            const parts = line.split(/[,，]/);
+            
+            if(parts.length >= 2) {
+                const sku = parts[0].trim();
+                const price = parseFloat(parts[1].trim());
+                // Name is optional, defaults to SKU if missing
+                const name = (parts[2] && parts[2].trim()) ? parts[2].trim() : sku;
+                
+                if(sku && !isNaN(price)) {
+                    const newProduct: Product = {
+                        id: generateId(),
+                        sku,
+                        price,
+                        name,
+                        brand: bulkBrand,
+                        currency: Currency.USD,
+                        unit: 'PCS',
+                        description: '', // Default description
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    onSave(newProduct);
+                    count++;
+                }
+            }
+        });
+        
+        if(count > 0) {
+            setBulkText('');
+            setShowBulkCreate(false);
+            // Optionally add a toast here
+        } else {
+            alert(t('bulkFormat'));
         }
     };
 
@@ -422,6 +475,47 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                      <button onClick={() => setSelectedIds([])} className="hover:text-gray-300 transition-colors">
                          <X size={16} />
                      </button>
+                 </div>
+             )}
+
+             {/* Bulk Create Modal */}
+             {showBulkCreate && (
+                 <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={() => setShowBulkCreate(false)}>
+                     <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                             <h3 className="font-bold text-lg text-gray-800">{t('bulkCreate')}</h3>
+                             <button onClick={() => setShowBulkCreate(false)} className="text-gray-500 hover:text-gray-700"><X size={20}/></button>
+                         </div>
+                         <div className="p-6 space-y-4">
+                             <div>
+                                 <label className="block text-sm font-bold text-gray-700 mb-2">{t('brand')}</label>
+                                 <input 
+                                    list="bulk-brand-list" 
+                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                                    value={bulkBrand} 
+                                    onChange={e => setBulkBrand(e.target.value)} 
+                                    placeholder={t('bulkBrandSelect')}
+                                 />
+                                 <datalist id="bulk-brand-list">{brands.map(b => <option key={b.id} value={b.name} />)}</datalist>
+                             </div>
+                             
+                             <div>
+                                 <label className="block text-sm font-bold text-gray-700 mb-2">Input Data</label>
+                                 <p className="text-xs text-gray-500 mb-2">{t('bulkFormat')}</p>
+                                 <textarea 
+                                    className="w-full p-3 border rounded h-64 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    placeholder={t('bulkPlaceholder')}
+                                    value={bulkText}
+                                    onChange={e => setBulkText(e.target.value)}
+                                 />
+                             </div>
+
+                             <div className="flex justify-end space-x-3 pt-2">
+                                 <button onClick={() => setShowBulkCreate(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">{t('cancel')}</button>
+                                 <button onClick={handleBulkCreate} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold">{t('bulkCreate')}</button>
+                             </div>
+                         </div>
+                     </div>
                  </div>
              )}
 
@@ -780,6 +874,10 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                             
                             <button onClick={handleExportExcel} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-green-700 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap">
                                 <Download size={18} className="mr-2" /> {t('exportExcel')}
+                            </button>
+
+                            <button onClick={() => setShowBulkCreate(true)} className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-purple-700 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap">
+                                <Layers size={18} className="mr-2" /> {t('bulkCreate')}
                             </button>
 
                             <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap">

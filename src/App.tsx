@@ -88,6 +88,10 @@ const TRANSLATIONS = {
     generateSimpleQuote: 'Simple Quote View',
     bulkDelete: 'Bulk Delete',
     confirmBulkDelete: 'Delete selected items?',
+    bulkCreate: 'Bulk Create',
+    bulkFormat: 'Format: Model, Price, Name (Optional)',
+    bulkPlaceholder: 'e.g.\nFluke 179, 300\nFluke 87V, 450, Digital Multimeter',
+    bulkBrandSelect: 'Select Brand for all items',
     // Brands
     addBrand: 'Add Brand',
     description: 'Description',
@@ -198,6 +202,10 @@ const TRANSLATIONS = {
     generateSimpleQuote: '生成简易报价',
     bulkDelete: '批量删除',
     confirmBulkDelete: '确定要删除选中的产品吗？',
+    bulkCreate: '批量创建',
+    bulkFormat: '格式：型号, 价格, 产品名称[可选]',
+    bulkPlaceholder: '例如：\nFluke 179, 300\nFluke 87V, 450, 数字万用表',
+    bulkBrandSelect: '选择品牌 (所有产品)',
     // Brands
     addBrand: '添加品牌',
     description: '描述/备注',
