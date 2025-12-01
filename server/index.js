@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import compression from 'compression'; // Optimized: Import compression
 import db from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +14,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const SECRET_KEY = 'your-secret-key-change-this-in-prod';
+
+// Optimized: Enable Gzip compression. This significantly reduces the size of large JSON responses
+// containing Base64 images, speeding up the "Login -> Dashboard" load time.
+app.use(compression());
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -37,13 +42,20 @@ const getLocalTime = () => {
 // --- Auth Routes ---
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
-  db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
+  db.get("SELECT * FROM users WHERE username = ?", [username], async (err, user) => { // Optimized: Async callback
     if (err) return res.status(500).json({ error: err.message });
     if (!user) return res.status(401).json({ error: "User not found" });
-    const isValid = bcrypt.compareSync(password, user.password);
-    if (!isValid) return res.status(401).json({ error: "Invalid password" });
-    const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '24h' });
-    res.json({ token, username: user.username, fullName: user.fullName, email: user.email, phone: user.phone });
+    
+    // Optimized: Use async compare to prevent blocking the event loop on low-CPU servers
+    try {
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) return res.status(401).json({ error: "Invalid password" });
+      
+      const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '24h' });
+      res.json({ token, username: user.username, fullName: user.fullName, email: user.email, phone: user.phone });
+    } catch (compareError) {
+      return res.status(500).json({ error: "Error verifying credentials" });
+    }
   });
 });
 
@@ -54,16 +66,21 @@ app.get('/api/users', authenticateToken, (req, res) => {
   });
 });
 
-app.post('/api/users', authenticateToken, (req, res) => {
+app.post('/api/users', authenticateToken, async (req, res) => { // Optimized: Async
   const { username, password, fullName, email, phone } = req.body;
-  const hash = bcrypt.hashSync(password, 10);
-  db.run("INSERT INTO users (username, password, fullName, email, phone) VALUES (?, ?, ?, ?, ?)", 
-    [username, hash, fullName || '', email || '', phone || ''], 
-    function(err) {
-      if (err) return res.status(500).json({ error: "Username likely already exists" });
-      res.json({ id: this.lastID, username, fullName, email, phone });
-    }
-  );
+  try {
+      // Optimized: Async hash
+      const hash = await bcrypt.hash(password, 10);
+      db.run("INSERT INTO users (username, password, fullName, email, phone) VALUES (?, ?, ?, ?, ?)", 
+        [username, hash, fullName || '', email || '', phone || ''], 
+        function(err) {
+          if (err) return res.status(500).json({ error: "Username likely already exists" });
+          res.json({ id: this.lastID, username, fullName, email, phone });
+        }
+      );
+  } catch (e) {
+      res.status(500).json({ error: "Error creating user" });
+  }
 });
 
 app.delete('/api/users/:id', authenticateToken, (req, res) => {
