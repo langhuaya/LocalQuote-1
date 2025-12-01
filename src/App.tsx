@@ -55,6 +55,10 @@ const TRANSLATIONS = {
     exportPdf: 'Export PDF',
     exportImage: 'Export Image',
     preview: 'Preview',
+    importExcel: 'Import Excel',
+    exportExcel: 'Export Excel',
+    importSuccess: 'Import Successful',
+    processing: 'Processing...',
     // Products
     sku: 'SKU / Model',
     name: 'Name',
@@ -145,6 +149,10 @@ const TRANSLATIONS = {
     exportPdf: '导出 PDF',
     exportImage: '导出图片',
     preview: '预览',
+    importExcel: '导入 Excel',
+    exportExcel: '导出 Excel',
+    importSuccess: '导入成功',
+    processing: '处理中...',
     // Products
     sku: 'SKU / 型号',
     name: '产品名称',

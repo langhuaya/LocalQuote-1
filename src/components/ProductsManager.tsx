@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Currency, SupplierInfo, CompanySettings, Brand } from '../types';
-import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter, Download, Upload, Loader2 } from 'lucide-react';
 import { generateId } from '../services/api';
+import * as XLSX from 'xlsx';
 
 interface ProductsManagerProps {
     products: Product[];
@@ -26,6 +27,9 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     const [selectedBrand, setSelectedBrand] = useState('All');
 
     const [editingSuppliers, setEditingSuppliers] = useState<SupplierInfo[]>([]);
+    
+    // Import state
+    const [isImporting, setIsImporting] = useState(false);
 
     // Derive units from settings or default to English standard units
     const unitsList = (settings.productUnits || 'PCS, SET, BOX, CTN, KG, M, ROLL, PACK, PAIR, UNIT').split(',').map(u => u.trim()).filter(Boolean);
@@ -173,6 +177,153 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
         } else {
             alert(t('skuRequired'));
         }
+    };
+
+    // --- Excel Import/Export Logic ---
+
+    const handleExportExcel = () => {
+        const wb = XLSX.utils.book_new();
+        
+        // Group products by brand
+        const grouped: Record<string, any[]> = {};
+        
+        // If no products, just create one empty sheet
+        if (products.length === 0) {
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([]), "Sheet1");
+        } else {
+            products.forEach(p => {
+                const brand = p.brand || 'Other';
+                if (!grouped[brand]) grouped[brand] = [];
+                
+                // Flatten data structure for Excel
+                // IMPORTANT: Excluding Image Data
+                const primarySupplier = p.suppliers?.find(s => s.isDefault) || p.suppliers?.[0];
+                
+                const row = {
+                    SKU: p.sku,
+                    Name: p.name,
+                    Brand: p.brand,
+                    Unit: p.unit,
+                    Price: p.price,
+                    Currency: p.currency,
+                    Description: p.description,
+                    Note: p.note,
+                    Supplier: primarySupplier?.name || p.supplierName,
+                    Cost: primarySupplier?.cost || p.cost,
+                    SupplierRef: primarySupplier?.reference || p.supplierReference
+                };
+                grouped[brand].push(row);
+            });
+
+            // Create a sheet for each brand
+            Object.keys(grouped).sort().forEach(brand => {
+                // Excel sheet names max 31 chars
+                const safeName = brand.substring(0, 31).replace(/[:\\\/?*\[\]]/g, ""); 
+                const ws = XLSX.utils.json_to_sheet(grouped[brand]);
+                XLSX.utils.book_append_sheet(wb, ws, safeName || "Sheet1");
+            });
+        }
+
+        XLSX.writeFile(wb, `Inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        setIsImporting(true);
+        const reader = new FileReader();
+        
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                
+                const importedProducts: Product[] = [];
+                
+                // Iterate through all sheets
+                wb.SheetNames.forEach(sheetName => {
+                    const ws = wb.Sheets[sheetName];
+                    const data = XLSX.utils.sheet_to_json(ws);
+                    
+                    data.forEach((row: any) => {
+                        // Minimal validation: SKU is required
+                        if (!row.SKU) return;
+                        
+                        // Map row back to Product structure
+                        // Note: Using 'sheetName' as brand fallback if brand column empty is optional, 
+                        // but user said labels are based on brand.
+                        const brand = row.Brand || (sheetName === 'Other' || sheetName === 'Sheet1' ? '' : sheetName);
+                        
+                        const p: Product = {
+                            id: generateId(), // New ID by default
+                            sku: String(row.SKU).trim(),
+                            name: row.Name || '',
+                            brand: brand,
+                            unit: row.Unit || 'PCS',
+                            price: parseFloat(row.Price) || 0,
+                            currency: row.Currency || 'USD',
+                            description: row.Description || '',
+                            note: row.Note || '',
+                            // Supplier info
+                            supplierName: row.Supplier,
+                            supplierReference: row.SupplierRef,
+                            cost: parseFloat(row.Cost) || 0,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        };
+
+                        // Construct default supplier info
+                        if (p.supplierName || p.cost) {
+                            p.suppliers = [{
+                                id: generateId(),
+                                name: p.supplierName || 'Unknown',
+                                cost: p.cost || 0,
+                                currency: p.currency, // Defaulting to same currency
+                                reference: p.supplierReference,
+                                hasStock: true,
+                                isDefault: true
+                            }];
+                        }
+                        
+                        importedProducts.push(p);
+                    });
+                });
+
+                if (importedProducts.length > 0) {
+                    if (confirm(`Found ${importedProducts.length} items. Import now? \n(Existing SKUs will be updated, Images preserved if exists)`)) {
+                         // Process Import
+                         // We need to check if SKU exists to preserve ID and Images
+                         for (const newP of importedProducts) {
+                             const existing = products.find(ex => ex.sku === newP.sku);
+                             if (existing) {
+                                 // Preserve ID and Image
+                                 newP.id = existing.id;
+                                 newP.imageDataUrl = existing.imageDataUrl;
+                                 newP.createdAt = existing.createdAt;
+                                 // Update price history if changed (handled by backend usually, but here we just send data)
+                             }
+                             // Call save for each (Parent component handles the API call)
+                             // Note: This might spam the server if list is huge. 
+                             // Ideally backend has a bulk import, but for this app structure we reuse onSave.
+                             onSave(newP);
+                         }
+                         alert(t('importSuccess'));
+                    }
+                } else {
+                    alert('No valid data found (SKU column is required).');
+                }
+            } catch (err) {
+                console.error("Import error", err);
+                alert("Failed to parse Excel file.");
+            } finally {
+                setIsImporting(false);
+                // Reset file input
+                e.target.value = '';
+            }
+        };
+        
+        reader.readAsBinaryString(file);
     };
 
     const getRate = (curr: string) => {
@@ -463,9 +614,21 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                             </div>
                         </div>
 
-                        <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap">
-                            <Plus size={18} className="mr-2" /> {t('new')} {t('products')}
-                        </button>
+                        <div className="flex items-center space-x-2 w-full xl:w-auto overflow-x-auto">
+                            <label className={`bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center shadow-sm cursor-pointer hover:bg-gray-50 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                {isImporting ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Upload size={18} className="mr-2" />}
+                                {isImporting ? t('processing') : t('importExcel')}
+                                <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleImportExcel} disabled={isImporting} />
+                            </label>
+                            
+                            <button onClick={handleExportExcel} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-green-700 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap">
+                                <Download size={18} className="mr-2" /> {t('exportExcel')}
+                            </button>
+
+                            <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap">
+                                <Plus size={18} className="mr-2" /> {t('new')}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
