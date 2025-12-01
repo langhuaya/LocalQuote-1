@@ -62,12 +62,13 @@ const TRANSLATIONS = {
     price: 'Price',
     cost: 'Cost',
     unit: 'Unit',
-    suppliers: 'Suppliers',
-    addSupplier: 'Add Supplier',
+    suppliers: 'Channel Info',
+    addSupplier: 'Add Channel',
+    channelName: 'Channel Name',
     noStock: 'No Stock',
     hasStock: 'In Stock',
     stock: 'Stock',
-    supplierRef: 'Supplier Ref/Link',
+    supplierRef: 'Ref/Link',
     margin: 'Margin',
     salesInfo: 'Sales Info',
     desc: 'Description',
@@ -78,7 +79,7 @@ const TRANSLATIONS = {
     // Brands
     addBrand: 'Add Brand',
     description: 'Description',
-    suppliersCount: 'Suppliers Count',
+    suppliersCount: 'Channel Count',
     // Quotes/Contracts
     number: 'Number',
     date: 'Date',
@@ -112,8 +113,8 @@ const TRANSLATIONS = {
   },
   zh: {
     dashboard: '仪表盘',
-    quotes: '出口报价单',
-    contracts: '产品购销合同',
+    quotes: '报价单导出',
+    contracts: '销售合同',
     products: '产品库管理',
     customers: '客户管理',
     brands: '品牌管理',
@@ -121,19 +122,19 @@ const TRANSLATIONS = {
     users: '账号管理',
     welcome: '欢迎',
     logout: '退出登录',
-    generating: '正在生成...',
+    generating: '生成中...',
     customerRegion: '客户区域',
-    domestic: '国内客户 (Domestic)',
-    international: '国外客户 (International)',
-    taxId: '纳税人识别号',
+    domestic: '国内 (中国)',
+    international: '国际 (海外)',
+    taxId: '税号',
     bankName: '开户行',
     bankAccount: '银行账号',
     company: '公司名称',
     contact: '联系人',
-    contractTerms: '合同条款模板',
+    contractTerms: '合同条款',
     domesticInfo: '国内主体信息',
     // Common Actions
-    add: '添加',
+    add: '新建',
     new: '新建',
     edit: '编辑',
     delete: '删除',
@@ -151,49 +152,50 @@ const TRANSLATIONS = {
     price: '销售单价',
     cost: '成本价',
     unit: '单位',
-    suppliers: '供应商信息',
-    addSupplier: '添加供应商',
+    suppliers: '渠道信息',
+    addSupplier: '添加渠道',
+    channelName: '渠道名称',
     noStock: '无货',
     hasStock: '有现货',
     stock: '库存',
-    supplierRef: '货号/链接',
+    supplierRef: '渠道货号/链接',
     margin: '利润率',
     salesInfo: '销售信息',
     desc: '详细描述',
     note: '内部备注',
     entryTime: '入库时间',
-    skuRequired: 'SKU 是必填项',
+    skuRequired: '必须填写 SKU',
     productImage: '产品图片',
     // Brands
-    addBrand: '添加品牌',
-    description: '描述/备注',
-    suppliersCount: '供应商数量',
+    addBrand: '新建品牌',
+    description: '描述',
+    suppliersCount: '渠道数量',
     // Quotes/Contracts
-    number: '编号',
+    number: '单号',
     date: '日期',
     amount: '金额',
     total: '总计',
     status: '状态',
     validUntil: '有效期至',
-    billTo: '客户信息',
-    selectCustomer: '从客户管理选择客户',
+    billTo: '致 (客户)',
+    selectCustomer: '选择客户',
     lineItems: '产品明细',
     addItem: '添加产品',
     subtotal: '小计',
     discountRate: '折扣率',
     discountAmount: '折扣金额',
     shipping: '运费',
-    grandTotal: '总计',
+    grandTotal: '总金额',
     currency: '币种',
     incoterms: '贸易条款',
     leadTime: '货期',
-    paymentTerms: '付款方式',
+    paymentTerms: '付款条款',
     notes: '备注',
     quoteDetails: '报价详情',
     newQuote: '新建报价单',
     contractNumber: '合同编号',
-    signDate: '签订时间',
-    buyer: '需方 (客户)',
+    signDate: '签订日期',
+    buyer: '需方',
     contractPlace: '签订地点',
     noData: '暂无数据',
     createdTime: '创建时间',
@@ -201,766 +203,696 @@ const TRANSLATIONS = {
   }
 };
 
-export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Data
+export const App = () => {
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [view, setView] = useState<ViewState>('dashboard');
+  const [lang, setLang] = useState<Lang>('zh');
+  const [products, setProducts] = useState<Product[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(storageService.getSettings());
   
-  // UI
-  const [currentView, setCurrentView] = useState<ViewState>('dashboard');
-  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
-  const [editingContract, setEditingContract] = useState<Contract | null>(null);
-  const [lang, setLang] = useState<Lang>('zh');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [editQuote, setEditQuote] = useState<Quote | null>(null);
+  const [editContract, setEditContract] = useState<Contract | null>(null);
   
-  // Print Refs
-  const printQuoteRef = useRef<HTMLDivElement>(null);
-  const printContractRef = useRef<HTMLDivElement>(null);
-  const [printQuote, setPrintQuote] = useState<Quote | null>(null);
-  const [printContract, setPrintContract] = useState<Contract | null>(null);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'image'>('pdf');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const t = (key: keyof typeof TRANSLATIONS['en']) => TRANSLATIONS[lang][key] || key;
+  const t = (key: string) => TRANSLATIONS[lang][key as keyof typeof TRANSLATIONS['en']] || key;
 
+  // --- Data Loading ---
   const loadData = async () => {
+    if (!token) return;
     try {
-      setIsLoading(true);
-      const [q, ctr, p, c, b, s] = await Promise.all([
-        api.getQuotes(),
-        api.getContracts(),
+      const [p, c, b, q, k, s] = await Promise.all([
         api.getProducts(),
         api.getCustomers(),
         api.getBrands(),
+        api.getQuotes(),
+        api.getContracts(),
         api.getSettings()
       ]);
-      
-      const sortedQuotes = q.sort((a: Quote, b: Quote) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const sortedContracts = ctr.sort((a: Contract, b: Contract) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-      setQuotes(sortedQuotes);
-      setContracts(sortedContracts);
       setProducts(p);
       setCustomers(c);
       setBrands(b);
-      
+      setQuotes(q);
+      setContracts(k);
       if (s) {
-          const defaultSettings = storageService.getSettings();
-          const mergedSettings = {
-              ...defaultSettings,
-              ...s,
-              domestic: {
-                  ...defaultSettings.domestic,
-                  ...(s.domestic || {})
-              }
-          };
-          setSettings(mergedSettings);
+          setSettings(s);
+          storageService.saveSettings(s);
       }
-    } catch (error) {
-      console.error("Failed to load data", error);
-      handleLogout();
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      console.error("Failed to load data", e);
+      if (localStorage.getItem('token')) {
+          // Token might be invalid
+          handleLogout();
+      }
     }
   };
 
   useEffect(() => {
-    if (isAuthenticated) loadData();
-    else setIsLoading(false);
-  }, [isAuthenticated]);
+    if (token) loadData();
+  }, [token]);
 
-  const handleLoginSuccess = () => setIsAuthenticated(true);
+  // --- Handlers ---
   const handleLogout = () => {
-    localStorage.clear();
-    setIsAuthenticated(false);
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    setToken(null);
   };
 
-  // --- Quote Actions ---
+  const handleSaveProduct = async (product: Product) => {
+    await api.saveProduct(product);
+    loadData();
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (confirm(t('delete') + '?')) {
+      await api.deleteProduct(id);
+      loadData();
+    }
+  };
+
+  const handleSaveBrand = async (brand: Brand) => {
+    await api.saveBrand(brand);
+    loadData();
+  };
+
+  const handleDeleteBrand = async (id: string) => {
+    if (confirm(t('delete') + '?')) {
+        await api.deleteBrand(id);
+        loadData();
+    }
+  };
+
+  const handleSaveCustomer = async (customer: Customer) => {
+    await api.saveCustomer(customer);
+    loadData();
+  };
+
+  const handleDeleteCustomer = async (id: string) => {
+    if (confirm(t('delete') + '?')) {
+      await api.deleteCustomer(id);
+      loadData();
+    }
+  };
+
   const handleSaveQuote = async (quote: Quote) => {
     await api.saveQuote(quote);
-    // OPTIMIZED: Only fetch quotes
-    const updatedQuotes = await api.getQuotes();
-    const sortedQuotes = updatedQuotes.sort((a: Quote, b: Quote) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setQuotes(sortedQuotes);
-    setCurrentView('quotes');
-    setEditingQuote(null);
+    await loadData();
+    setView('quotes');
+    setEditQuote(null);
   };
+
   const handleDeleteQuote = async (id: string) => {
-    if(confirm(t('delete') + '?')) { 
-      await api.deleteQuote(id); 
-      setQuotes(quotes.filter(q => q.id !== id));
+    if (confirm(t('delete') + '?')) {
+      await api.deleteQuote(id);
+      loadData();
     }
   };
 
-  // --- Contract Actions ---
   const handleSaveContract = async (contract: Contract) => {
-    await api.saveContract(contract);
-    // OPTIMIZED: Only fetch contracts
-    const updatedContracts = await api.getContracts();
-    const sortedContracts = updatedContracts.sort((a: Contract, b: Contract) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setContracts(sortedContracts);
-    setCurrentView('contracts');
-    setEditingContract(null);
-  };
+      await api.saveContract(contract);
+      await loadData();
+      setView('contracts');
+      setEditContract(null);
+  }
+
   const handleDeleteContract = async (id: string) => {
-    if(confirm(t('delete') + '?')) { 
-      await api.deleteContract(id); 
-      setContracts(contracts.filter(c => c.id !== id));
-    }
-  };
-
-  // --- Generic Actions (OPTIMIZED) ---
-  
-  // Product Save: Update Local State to avoid 10MB re-download
-  const handleProductSave = async (p: Product) => { 
-      await api.saveProduct(p);
-      setProducts(prev => {
-          const exists = prev.find(item => item.id === p.id);
-          // Manually add current date for visual feedback if new
-          const now = new Date().toISOString().split('T')[0];
-          const productWithMeta = { ...p, updatedAt: now, createdAt: exists ? exists.createdAt : now };
-          
-          if (exists) {
-              return prev.map(item => item.id === p.id ? productWithMeta : item);
-          }
-          return [productWithMeta, ...prev];
-      });
-  };
-  
-  const handleDeleteProduct = async (id: string) => { 
-      if(confirm(t('delete') + '?')) { 
-          await api.deleteProduct(id);
-          setProducts(prev => prev.filter(p => p.id !== id));
+      if(confirm(t('delete') + '?')) {
+          await api.deleteContract(id);
+          loadData();
       }
+  }
+
+  const handleSaveSettings = async (newSettings: CompanySettings) => {
+    await api.saveSettings(newSettings);
+    setSettings(newSettings);
+    storageService.saveSettings(newSettings);
+    alert(t('save') + ' ' + t('status'));
   };
 
-  const handleCustomerSave = async (c: Customer) => { 
-      await api.saveCustomer(c);
-      const newCustomers = await api.getCustomers(); // Customers are small, safe to refetch
-      setCustomers(newCustomers);
-  };
-  
-  const handleDeleteCustomer = async (id: string) => { 
-      if(confirm(t('delete') + '?')) { 
-          await api.deleteCustomer(id); 
-          setCustomers(customers.filter(c => c.id !== id));
-      }
-  };
+  // --- PDF / Image Export Logic ---
+  const invoiceRef = useRef<HTMLDivElement>(null);
+  const contractRef = useRef<HTMLDivElement>(null);
 
-  const handleBrandSave = async (b: Brand) => { 
-      await api.saveBrand(b); 
-      const newBrands = await api.getBrands();
-      setBrands(newBrands);
-  };
-  
-  const handleDeleteBrand = async (id: string) => { 
-      if(confirm(t('delete') + '?')) { 
-          await api.deleteBrand(id); 
-          setBrands(brands.filter(b => b.id !== id));
-      }
-  };
+  const handleExport = async (data: Quote | Contract, format: 'pdf' | 'image') => {
+    setIsGenerating(true);
+    // Determine which ref and template to use based on data type
+    const isQuote = 'type' in data;
+    const targetRef = isQuote ? invoiceRef : contractRef;
+    const filename = isQuote ? `Quote_${(data as Quote).number}` : `Contract_${(data as Contract).contractNumber}`;
 
-  const handleSaveSettings = async (s: CompanySettings) => { 
-      await api.saveSettings(s); 
-      setSettings(s); 
-      alert(t('save') + ' Success!'); 
-  };
-
-  // --- Export Logic ---
-  const handleExport = async (doc: Quote | Contract, format: 'pdf' | 'image', type: 'quote' | 'contract') => {
-    if (isGeneratingPdf) return;
-    setIsGeneratingPdf(true);
-    setExportFormat(format);
+    // Wait for render
+    await new Promise(resolve => setTimeout(resolve, 500)); 
     
-    if (type === 'quote') setPrintQuote(doc as Quote);
-    else setPrintContract(doc as Contract);
+    if (targetRef.current) {
+        try {
+            const canvas = await html2canvas(targetRef.current, {
+                scale: 2, // Higher scale for better quality
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
 
-    setTimeout(async () => {
-        const ref = type === 'quote' ? printQuoteRef.current : printContractRef.current;
-        if (ref) {
-            try {
-                const scale = format === 'pdf' ? 4 : 3;
-                const canvas = await html2canvas(ref, { scale, useCORS: true, logging: false, windowWidth: 794, backgroundColor: '#ffffff' });
-
-                if (format === 'image') {
-                    canvas.toBlob((blob) => {
-                        if (blob) {
-                            const url = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = `${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.png`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            URL.revokeObjectURL(url);
-                        }
-                    }, 'image/png');
-                } else {
-                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-                    const pdfWidth = 210; 
-                    const pdfHeight = 297; 
-                    const imgProps = pdf.getImageProperties(imgData);
-                    const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                    let heightLeft = imgHeight;
-                    let position = 0;
-
-                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
-                    heightLeft -= pdfHeight;
-                    while (heightLeft >= 1) {
-                        position = heightLeft - imgHeight;
-                        pdf.addPage();
-                        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
-                        heightLeft -= pdfHeight;
-                    }
-                    pdf.save(`${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.pdf`);
-                }
-            } catch (err) {
-                console.error("Export failed", err);
-                alert("Failed to export.");
-            } finally {
-                setPrintQuote(null);
-                setPrintContract(null);
-                setIsGeneratingPdf(false);
+            if (format === 'image') {
+                const imgData = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = imgData;
+                link.download = `${filename}.png`;
+                link.click();
+            } else {
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                // Calculate aspect ratio to fit A4
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                // If content is longer than A4, we might need multi-page (Basic implementation supports single page auto-fit or long page)
+                // For this strict template, we fit to width.
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
+                pdf.save(`${filename}.pdf`);
             }
+        } catch (err) {
+            console.error("Export failed", err);
+            alert("Export failed. Please check console.");
         }
-    }, 1500);
-  };
-
-  const navigateTo = (view: ViewState) => { setCurrentView(view); setIsMobileMenuOpen(false); };
-
-  const renderContent = () => {
-    switch (currentView) {
-      case 'quote-editor':
-        return <QuoteEditor initialQuote={editingQuote} customers={customers} products={products} settings={settings} onSave={handleSaveQuote} onCancel={() => navigateTo('quotes')} onExport={(q, f) => handleExport(q, f, 'quote')} t={t} />;
-      case 'contract-editor':
-        return <ContractEditor initialContract={editingContract} customers={customers} products={products} settings={settings} onSave={handleSaveContract} onCancel={() => navigateTo('contracts')} onExport={(c, f) => handleExport(c, f, 'contract')} t={t} />;
-      case 'quotes':
-        return <QuotesList quotes={quotes} onEdit={(q:Quote) => { setEditingQuote(q); navigateTo('quote-editor'); }} onDelete={handleDeleteQuote} onNew={() => { setEditingQuote(null); navigateTo('quote-editor'); }} onExport={(q:Quote, f:any) => handleExport(q, f, 'quote')} isGenerating={isGeneratingPdf} t={t} />;
-      case 'contracts':
-        return <ContractsList contracts={contracts} onEdit={(c:Contract) => { setEditingContract(c); navigateTo('contract-editor'); }} onDelete={handleDeleteContract} onNew={() => { setEditingContract(null); navigateTo('contract-editor'); }} onExport={(c:Contract, f:any) => handleExport(c, f, 'contract')} isGenerating={isGeneratingPdf} t={t} />;
-      case 'products':
-        return <ProductsManager products={products} brands={brands} settings={settings} onSave={handleProductSave} onDelete={handleDeleteProduct} t={t} />;
-      case 'customers':
-        return <CustomersManager customers={customers} onSave={handleCustomerSave} onDelete={handleDeleteCustomer} t={t} />;
-      case 'brands':
-        return <BrandsManager brands={brands} onSave={handleBrandSave} onDelete={handleDeleteBrand} t={t} />;
-      case 'settings':
-        return <SettingsManager settings={settings} onSave={handleSaveSettings} t={t} />;
-      case 'users':
-        return <UsersManager t={t} />;
-      case 'dashboard':
-      default:
-        return <Dashboard quotes={quotes} contracts={contracts} t={t} />;
     }
+    setIsGenerating(false);
   };
 
-  if (!isAuthenticated) return <Login onLoginSuccess={handleLoginSuccess} />;
-  if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-10 h-10" /></div>;
+  // --- Views ---
+  if (!token) {
+    return <Login onLoginSuccess={() => setToken(localStorage.getItem('token'))} />;
+  }
+
+  // Hidden Render Area for PDF Generation
+  const HiddenRender = () => (
+      <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+          {/* We render a "Generate Mode" template which might have different styling logic if needed */}
+          {editQuote && <InvoiceTemplate ref={invoiceRef} quote={editQuote} settings={settings} mode="generate" />}
+          {editContract && <ContractTemplate ref={contractRef} contract={editContract} settings={settings.domestic} mode="generate" />}
+      </div>
+  );
+
+  const renderSidebarItem = (id: ViewState, icon: React.ReactNode, label: string) => (
+    <button
+      onClick={() => { setView(id); if (window.innerWidth < 768) setIsSidebarOpen(false); }}
+      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+        view === id ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:bg-slate-800 hover:text-white'
+      }`}
+    >
+      {icon}
+      <span className="font-medium">{label}</span>
+    </button>
+  );
 
   return (
-    <>
-      <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
-        {isGeneratingPdf && (
-            <div className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex flex-col items-center justify-center text-white">
-                <Loader2 className="animate-spin w-12 h-12 mb-4" />
-                <p className="text-lg font-semibold">{t('generating')}</p>
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      {/* --- Sidebar --- */}
+      <aside 
+        className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 text-white transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col`}
+      >
+        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-xl">L</div>
+                <span className="text-lg font-bold tracking-tight">SwiftQuote</span>
             </div>
-        )}
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400"><X size={24}/></button>
+        </div>
 
-        <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-100 flex flex-col shadow-xl transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
-          <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-             <h1 className="text-xl font-bold">LH WAVE</h1>
-             <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden"><X size={24}/></button>
-          </div>
-          <nav className="flex-1 p-4 space-y-2 overflow-y-auto no-scrollbar">
-              <SidebarItem icon={<LayoutDashboard size={20} />} label={t('dashboard')} active={currentView === 'dashboard'} onClick={() => navigateTo('dashboard')} />
-              <SidebarItem icon={<FileText size={20} />} label={t('quotes')} active={currentView === 'quotes' || currentView === 'quote-editor'} onClick={() => navigateTo('quotes')} />
-              <SidebarItem icon={<FileSignature size={20} />} label={t('contracts')} active={currentView === 'contracts' || currentView === 'contract-editor'} onClick={() => navigateTo('contracts')} />
-              <SidebarItem icon={<Package size={20} />} label={t('products')} active={currentView === 'products'} onClick={() => navigateTo('products')} />
-              <SidebarItem icon={<Users size={20} />} label={t('customers')} active={currentView === 'customers'} onClick={() => navigateTo('customers')} />
-              <SidebarItem icon={<Tag size={20} />} label={t('brands')} active={currentView === 'brands'} onClick={() => navigateTo('brands')} />
-              <div className="pt-8">
-                  <SidebarItem icon={<Settings size={20} />} label={t('settings')} active={currentView === 'settings'} onClick={() => navigateTo('settings')} />
-                  <SidebarItem icon={<Shield size={20} />} label={t('users')} active={currentView === 'users'} onClick={() => navigateTo('users')} />
-              </div>
-          </nav>
-          <div className="p-4 border-t border-slate-800 space-y-2">
-              <button onClick={() => setLang(lang === 'en' ? 'zh' : 'en')} className="flex items-center justify-center w-full py-2 bg-slate-800 rounded text-sm"><Globe size={16} className="mr-2" /> {lang === 'en' ? '中文' : 'English'}</button>
-              <button onClick={handleLogout} className="flex items-center justify-center w-full py-2 bg-red-900/30 text-red-400 rounded text-sm"><LogOut size={16} className="mr-2" /> {t('logout')}</button>
-          </div>
-        </aside>
+        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+          {renderSidebarItem('dashboard', <LayoutDashboard size={20} />, t('dashboard'))}
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-gray-500 uppercase">Sales</div>
+          {renderSidebarItem('quotes', <FileText size={20} />, t('quotes'))}
+          {renderSidebarItem('contracts', <FileSignature size={20} />, t('contracts'))}
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-gray-500 uppercase">Inventory</div>
+          {renderSidebarItem('products', <Package size={20} />, t('products'))}
+          {renderSidebarItem('brands', <Tag size={20} />, t('brands'))}
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-gray-500 uppercase">Management</div>
+          {renderSidebarItem('customers', <Users size={20} />, t('customers'))}
+          {renderSidebarItem('users', <Shield size={20} />, t('users'))}
+          {renderSidebarItem('settings', <Settings size={20} />, t('settings'))}
+        </nav>
 
-        <main className="flex-1 flex flex-col w-full overflow-hidden">
-           <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 z-10 flex-shrink-0">
-               <div className="flex items-center">
-                   <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden mr-4"><Menu/></button>
-                   <h2 className="text-xl font-bold text-gray-800">{t(currentView as any) || currentView}</h2>
+        <div className="p-4 border-t border-slate-800">
+           <div className="flex items-center justify-between mb-4 px-2">
+                <button onClick={() => setLang(lang === 'en' ? 'zh' : 'en')} className="flex items-center text-sm text-gray-400 hover:text-white">
+                    <Globe size={16} className="mr-1"/> {lang === 'en' ? '中文' : 'English'}
+                </button>
+           </div>
+           <button onClick={handleLogout} className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 p-2 rounded text-sm transition-colors text-red-400">
+               <LogOut size={16} /> <span>{t('logout')}</span>
+           </button>
+        </div>
+      </aside>
+
+      {/* --- Main Content --- */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+        {/* Top Header (Mobile) */}
+        <header className="bg-white border-b h-16 flex items-center justify-between px-4 md:hidden flex-shrink-0">
+            <button onClick={() => setIsSidebarOpen(true)} className="text-gray-600"><Menu size={24}/></button>
+            <span className="font-bold text-gray-800">SwiftQuote Pro</span>
+            <div className="w-6"></div>
+        </header>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-auto p-4 md:p-8 relative">
+           {isGenerating && (
+               <div className="absolute inset-0 z-50 bg-white/80 flex items-center justify-center backdrop-blur-sm">
+                   <div className="flex flex-col items-center">
+                       <Loader2 className="animate-spin text-blue-600 mb-2" size={48} />
+                       <p className="text-gray-600 font-medium">{t('generating')}</p>
+                   </div>
                </div>
-           </header>
-           <div className="flex-1 overflow-auto p-4 md:p-8">{renderContent()}</div>
-        </main>
-      </div>
+           )}
+           
+           {/* Render Hidden Templates for Export */}
+           <HiddenRender />
 
-      {printQuote && (
-          <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1 }}>
-              <InvoiceTemplate ref={printQuoteRef} quote={printQuote} settings={settings} mode="generate" />
-          </div>
-      )}
-      {printContract && (
-          <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1 }}>
-              <ContractTemplate ref={printContractRef} contract={printContract} settings={settings.domestic} mode="generate" />
-          </div>
-      )}
-    </>
-  );
-}
-
-const SidebarItem = ({ icon, label, active, onClick }: any) => (
-    <button onClick={onClick} className={`flex items-center w-full px-4 py-3 rounded-lg transition-all ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:bg-slate-800'}`}>
-        <span className="mr-3">{icon}</span><span className="font-medium">{label}</span>
-    </button>
-);
-
-const Dashboard = ({ quotes, contracts, t }: any) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow border">
-            <h3 className="font-bold text-gray-700 mb-2">{t('quotes')}</h3>
-            <p className="text-3xl font-bold">{quotes.length}</p>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow border">
-            <h3 className="font-bold text-gray-700 mb-2">{t('contracts')}</h3>
-            <p className="text-3xl font-bold">{contracts.length}</p>
-        </div>
-    </div>
-);
-
-const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => {
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const filteredQuotes = quotes.filter((q: Quote) => 
-        q.number.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (q.customerSnapshot?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return (
-        <div className="space-y-4">
-             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                 <div className="relative w-full md:w-80">
-                     <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                     <input 
-                         className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                         placeholder={`${t('search')} ${t('number')} / ${t('company')}`}
-                         value={searchTerm}
-                         onChange={e => setSearchTerm(e.target.value)}
-                     />
+           {view === 'dashboard' && (
+             <div className="max-w-6xl mx-auto space-y-6">
+                 <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-800">{t('welcome')}, {localStorage.getItem('username')}</h1>
+                        <p className="text-gray-500 mt-1">Here is what's happening today.</p>
+                    </div>
+                    <div className="hidden md:block text-sm text-gray-400 bg-white px-3 py-1 rounded-full border">
+                         {new Date().toLocaleDateString()}
+                    </div>
                  </div>
-                 <button onClick={onNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center w-full md:w-auto justify-center">
-                     <Plus size={16} className="mr-2"/> {t('newQuote')}
-                 </button>
-             </div>
-             <div className="bg-white rounded shadow overflow-hidden">
-                 <table className="w-full text-sm">
-                     <thead className="bg-gray-50">
-                         <tr>
-                             <th className="p-3 text-left">{t('number')}</th>
-                             <th className="p-3 text-left">{t('date')}</th>
-                             <th className="p-3 text-left">{t('createdTime')}</th>
-                             <th className="p-3 text-left">{t('createdUser')}</th>
-                             <th className="p-3 text-left">{t('billTo')}</th>
-                             <th className="p-3 text-right">{t('amount')}</th>
-                             <th className="p-3 text-right">{t('actions')}</th>
-                         </tr>
-                     </thead>
-                     <tbody className="divide-y">
-                         {filteredQuotes.map((q: Quote) => (
-                             <tr key={q.id} className="hover:bg-gray-50">
-                                 <td className="p-3 font-medium text-blue-600">{q.number}</td>
-                                 <td className="p-3">{q.date}</td>
-                                 <td className="p-3 text-xs text-gray-500">{q.createdAt}</td>
-                                 <td className="p-3 text-xs text-gray-500">{q.createdBy || 'System'}</td>
-                                 <td className="p-3">{q.customerSnapshot?.name}</td>
-                                 <td className="p-3 text-right">{q.currency} {q.total.toFixed(2)}</td>
-                                 <td className="p-3 text-right space-x-2">
-                                     <button onClick={() => onExport(q, 'pdf')} disabled={isGenerating} className="text-green-600"><Download size={18}/></button>
-                                     <button onClick={() => onEdit(q)} className="text-blue-600"><Edit size={18}/></button>
-                                     <button onClick={() => onDelete(q.id)} className="text-red-500"><Trash2 size={18}/></button>
-                                 </td>
-                             </tr>
-                         ))}
-                         {filteredQuotes.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-gray-400">{t('noData')}</td></tr>}
-                     </tbody>
-                 </table>
-             </div>
-        </div>
-    );
-};
 
-const ContractsList = ({ contracts, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => {
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const filteredContracts = contracts.filter((c: Contract) => 
-        c.contractNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (c.customerSnapshot?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return (
-        <div className="space-y-4">
-             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                 <div className="relative w-full md:w-80">
-                     <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                     <input 
-                         className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                         placeholder={`${t('search')} ${t('contractNumber')} / ${t('company')}`}
-                         value={searchTerm}
-                         onChange={e => setSearchTerm(e.target.value)}
-                     />
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                         <div className="flex justify-between items-start mb-4">
+                             <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><FileText size={24}/></div>
+                         </div>
+                         <h3 className="text-2xl font-bold text-gray-800">{quotes.length}</h3>
+                         <p className="text-sm text-gray-500">Total Quotes</p>
+                     </div>
+                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                         <div className="flex justify-between items-start mb-4">
+                             <div className="p-3 bg-purple-50 text-purple-600 rounded-lg"><Package size={24}/></div>
+                         </div>
+                         <h3 className="text-2xl font-bold text-gray-800">{products.length}</h3>
+                         <p className="text-sm text-gray-500">Products</p>
+                     </div>
+                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                         <div className="flex justify-between items-start mb-4">
+                             <div className="p-3 bg-green-50 text-green-600 rounded-lg"><Users size={24}/></div>
+                         </div>
+                         <h3 className="text-2xl font-bold text-gray-800">{customers.length}</h3>
+                         <p className="text-sm text-gray-500">Customers</p>
+                     </div>
+                      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                         <div className="flex justify-between items-start mb-4">
+                             <div className="p-3 bg-orange-50 text-orange-600 rounded-lg"><Tag size={24}/></div>
+                         </div>
+                         <h3 className="text-2xl font-bold text-gray-800">{brands.length}</h3>
+                         <p className="text-sm text-gray-500">Brands</p>
+                     </div>
                  </div>
-                 <button onClick={onNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center w-full md:w-auto justify-center"><Plus size={16} className="mr-2"/> {t('new')}</button>
-             </div>
-             <div className="bg-white rounded shadow overflow-hidden">
-                 <table className="w-full text-sm">
-                     <thead className="bg-gray-50">
-                         <tr>
-                             <th className="p-3 text-left">{t('contractNumber')}</th>
-                             <th className="p-3 text-left">{t('createdTime')}</th>
-                             <th className="p-3 text-left">{t('buyer')}</th>
-                             <th className="p-3 text-right">{t('total')} (CNY)</th>
-                             <th className="p-3 text-right">{t('actions')}</th>
-                         </tr>
-                     </thead>
-                     <tbody className="divide-y">
-                         {filteredContracts.map((c: Contract) => (
-                             <tr key={c.id} className="hover:bg-gray-50">
-                                 <td className="p-3 font-medium text-blue-600">{c.contractNumber}</td>
-                                 <td className="p-3">{c.createdAt || c.date}</td>
-                                 <td className="p-3">{c.customerSnapshot?.name}</td>
-                                 <td className="p-3 text-right font-bold">￥{c.totalAmount.toFixed(2)}</td>
-                                 <td className="p-3 text-right space-x-2">
-                                     <button onClick={() => onExport(c, 'pdf')} disabled={isGenerating} className="text-green-600"><Download size={18}/></button>
-                                     <button onClick={() => onEdit(c)} className="text-blue-600"><Edit size={18}/></button>
-                                     <button onClick={() => onDelete(c.id)} className="text-red-500"><Trash2 size={18}/></button>
-                                 </td>
-                             </tr>
-                         ))}
-                         {filteredContracts.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400">{t('noData')}</td></tr>}
-                     </tbody>
-                 </table>
-             </div>
-        </div>
-    );
-};
-
-const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [current, setCurrent] = useState<Partial<Customer>>({});
-    const [searchTerm, setSearchTerm] = useState('');
-    const [regionFilter, setRegionFilter] = useState<CustomerRegion | 'All'>('All');
-
-    const handleEdit = (c: Customer) => { setCurrent(c); setIsEditing(true); };
-    // Updated: Default to International
-    const handleNew = () => { setCurrent({ id: generateId(), region: 'International' }); setIsEditing(true); }; 
-
-    const filtered = customers.filter((c: Customer) => 
-        (regionFilter === 'All' || c.region === regionFilter) &&
-        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(current as Customer);
-        setIsEditing(false);
-    };
-
-    return (
-        <div className="space-y-6">
-            {isEditing ? (
-                 <div className="bg-white p-6 rounded-xl shadow border">
-                     <h3 className="font-bold text-lg mb-4">{current.id ? t('edit') : t('new')} {t('customers')}</h3>
-                     <form onSubmit={handleSubmit} className="space-y-4">
-                         {/* Region Switcher - Swapped Order */}
-                         <div className="flex space-x-4 mb-4">
-                             <label className="flex items-center space-x-2 cursor-pointer">
-                                 <input type="radio" name="region" checked={current.region === 'International'} onChange={() => setCurrent({...current, region: 'International'})} />
-                                 <span className="font-bold text-gray-700">{t('international')}</span>
-                             </label>
-                             <label className="flex items-center space-x-2 cursor-pointer">
-                                 <input type="radio" name="region" checked={current.region === 'Domestic'} onChange={() => setCurrent({...current, region: 'Domestic'})} />
-                                 <span className="font-bold text-gray-700">{t('domestic')}</span>
-                             </label>
-                         </div>
-                         
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('company')}</label>
-                                <input className="w-full p-2 border rounded" value={current.name || ''} onChange={e => setCurrent({...current, name: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">{t('contact')}</label>
-                                <input className="w-full p-2 border rounded" value={current.contactPerson || ''} onChange={e => setCurrent({...current, contactPerson: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">Email</label>
-                                <input className="w-full p-2 border rounded" value={current.email || ''} onChange={e => setCurrent({...current, email: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
-                                <input className="w-full p-2 border rounded" value={current.phone || ''} onChange={e => setCurrent({...current, phone: e.target.value})} />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 uppercase">Address</label>
-                                <input className="w-full p-2 border rounded" value={current.address || ''} onChange={e => setCurrent({...current, address: e.target.value})} />
-                            </div>
-                            
-                            {/* Conditional Fields */}
-                            {current.region === 'Domestic' ? (
-                                <>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase text-blue-600">{t('taxId')}</label>
-                                        <input className="w-full p-2 border rounded bg-blue-50" value={current.taxId || ''} onChange={e => setCurrent({...current, taxId: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase text-blue-600">{t('bankName')}</label>
-                                        <input className="w-full p-2 border rounded bg-blue-50" value={current.bankName || ''} onChange={e => setCurrent({...current, bankName: e.target.value})} />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-bold text-gray-500 uppercase text-blue-600">{t('bankAccount')}</label>
-                                        <input className="w-full p-2 border rounded bg-blue-50" value={current.bankAccount || ''} onChange={e => setCurrent({...current, bankAccount: e.target.value})} />
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase">Country</label>
-                                        <input className="w-full p-2 border rounded" value={current.country || ''} onChange={e => setCurrent({...current, country: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase">City</label>
-                                        <input className="w-full p-2 border rounded" value={current.city || ''} onChange={e => setCurrent({...current, city: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase">Zip Code</label>
-                                        <input className="w-full p-2 border rounded" value={current.zipCode || ''} onChange={e => setCurrent({...current, zipCode: e.target.value})} />
-                                    </div>
-                                </>
-                            )}
-                         </div>
-                         <div className="flex justify-end space-x-2">
-                             <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-600 bg-gray-100 rounded">{t('cancel')}</button>
-                             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">{t('save')}</button>
-                         </div>
-                     </form>
+                 
+                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                     <h3 className="font-bold text-gray-800 mb-4">Quick Actions</h3>
+                     <div className="flex flex-wrap gap-4">
+                         <button onClick={() => { setEditQuote(null); setView('quote-editor'); }} className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                             <Plus size={18} /> <span>{t('newQuote')}</span>
+                         </button>
+                         <button onClick={() => { setEditContract(null); setView('contract-editor'); }} className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition">
+                             <FileSignature size={18} /> <span>New Contract</span>
+                         </button>
+                         <button onClick={() => setView('products')} className="flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition">
+                             <Package size={18} /> <span>Manage Products</span>
+                         </button>
+                     </div>
                  </div>
-            ) : (
-                <>
-                    <div className="flex justify-between items-center">
-                         <div className="flex items-center space-x-4">
-                             <input className="p-2 border rounded w-64" placeholder={t('search')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                             <select className="p-2 border rounded" value={regionFilter} onChange={e => setRegionFilter(e.target.value as any)}>
-                                 <option value="All">All Regions</option>
-                                 <option value="Domestic">{t('domestic')}</option>
-                                 <option value="International">{t('international')}</option>
-                             </select>
-                         </div>
-                         <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center"><Plus size={16} className="mr-2"/> {t('add')} {t('customers')}</button>
-                    </div>
-                    <div className="bg-white rounded shadow overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="p-3 text-left">{t('customerRegion')}</th>
-                                    <th className="p-3 text-left">{t('company')}</th>
-                                    <th className="p-3 text-left">{t('contact')}</th>
-                                    <th className="p-3 text-left">{t('taxId')} / Country</th>
-                                    <th className="p-3 text-right">{t('actions')}</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {filtered.map(c => (
-                                    <tr key={c.id} className="hover:bg-gray-50">
-                                        <td className="p-3"><span className={`text-xs px-2 py-1 rounded ${c.region === 'Domestic' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{c.region || 'International'}</span></td>
-                                        <td className="p-3 font-bold">{c.name}</td>
-                                        <td className="p-3">{c.contactPerson}</td>
-                                        <td className="p-3">{c.region === 'Domestic' ? c.taxId : c.country}</td>
-                                        <td className="p-3 text-right space-x-2">
-                                            <button onClick={() => handleEdit(c)} className="text-blue-600"><Edit size={18}/></button>
-                                            <button onClick={() => onDelete(c.id)} className="text-red-500"><Trash2 size={18}/></button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
+             </div>
+           )}
 
-const SettingsManager = ({ settings, onSave, t }: any) => {
-    // SAFETY: Ensure domestic object exists before rendering to prevent white screen on legacy data
-    const safeSettings = {
-        ...settings,
-        domestic: settings.domestic || {
-             name: '', address: '', contact: '', phone: '', fax: '',
-             taxId: '', bankName: '', bankAccount: '', stampDataUrl: '',
-             contractTerms: '', contractPrefix: 'ULHTZH'
-        }
-    };
+           {view === 'quotes' && (
+               <div className="max-w-6xl mx-auto space-y-6">
+                   <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                       <h2 className="text-2xl font-bold text-gray-800">{t('quotes')}</h2>
+                       <button onClick={() => { setEditQuote(null); setView('quote-editor'); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition">
+                            <Plus size={18} className="mr-2" /> {t('newQuote')}
+                       </button>
+                   </div>
+                   <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                       <div className="overflow-x-auto">
+                           <table className="w-full text-sm text-left">
+                               <thead className="bg-gray-50 text-gray-500 uppercase font-bold">
+                                   <tr>
+                                       <th className="p-4">{t('number')}</th>
+                                       <th className="p-4">{t('date')}</th>
+                                       <th className="p-4">{t('billTo')}</th>
+                                       <th className="p-4 text-right">{t('total')}</th>
+                                       <th className="p-4 text-center">{t('status')}</th>
+                                       <th className="p-4 text-right">{t('actions')}</th>
+                                   </tr>
+                               </thead>
+                               <tbody className="divide-y">
+                                   {quotes.length === 0 ? (
+                                       <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>
+                                   ) : quotes.map(q => (
+                                       <tr key={q.id} className="hover:bg-gray-50">
+                                           <td className="p-4 font-bold text-blue-600">{q.number}</td>
+                                           <td className="p-4 text-gray-600">{q.date}</td>
+                                           <td className="p-4 font-medium text-gray-800">{q.customerSnapshot?.name}</td>
+                                           <td className="p-4 text-right font-mono font-bold">{q.currency} {q.total.toFixed(2)}</td>
+                                           <td className="p-4 text-center">
+                                               <span className={`px-2 py-1 rounded text-xs font-bold ${q.status === 'Draft' ? 'bg-gray-200 text-gray-600' : q.status === 'Sent' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
+                                                   {q.status}
+                                               </span>
+                                           </td>
+                                           <td className="p-4 text-right space-x-2">
+                                               <button onClick={() => { setEditQuote(q); setView('quote-editor'); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16}/></button>
+                                               <button onClick={() => handleDeleteQuote(q.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                                           </td>
+                                       </tr>
+                                   ))}
+                               </tbody>
+                           </table>
+                       </div>
+                   </div>
+               </div>
+           )}
+           
+           {view === 'contracts' && (
+               <div className="max-w-6xl mx-auto space-y-6">
+                   <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                       <h2 className="text-2xl font-bold text-gray-800">{t('contracts')}</h2>
+                       <button onClick={() => { setEditContract(null); setView('contract-editor'); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition">
+                            <Plus size={18} className="mr-2" /> {t('new')} {t('contracts')}
+                       </button>
+                   </div>
+                   <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                       <div className="overflow-x-auto">
+                           <table className="w-full text-sm text-left">
+                               <thead className="bg-gray-50 text-gray-500 uppercase font-bold">
+                                   <tr>
+                                       <th className="p-4">{t('contractNumber')}</th>
+                                       <th className="p-4">{t('signDate')}</th>
+                                       <th className="p-4">{t('buyer')}</th>
+                                       <th className="p-4 text-right">{t('amount')} (RMB)</th>
+                                       <th className="p-4 text-right">{t('actions')}</th>
+                                   </tr>
+                               </thead>
+                               <tbody className="divide-y">
+                                   {contracts.length === 0 ? (
+                                       <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>
+                                   ) : contracts.map(c => (
+                                       <tr key={c.id} className="hover:bg-gray-50">
+                                           <td className="p-4 font-bold text-blue-600">{c.contractNumber}</td>
+                                           <td className="p-4 text-gray-600">{c.date}</td>
+                                           <td className="p-4 font-medium text-gray-800">{c.customerSnapshot?.name}</td>
+                                           <td className="p-4 text-right font-mono font-bold">￥{c.totalAmount.toFixed(2)}</td>
+                                           <td className="p-4 text-right space-x-2">
+                                               <button onClick={() => { setEditContract(c); setView('contract-editor'); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16}/></button>
+                                               <button onClick={() => handleDeleteContract(c.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                                           </td>
+                                       </tr>
+                                   ))}
+                               </tbody>
+                           </table>
+                       </div>
+                   </div>
+               </div>
+           )}
 
-    const [data, setData] = useState<CompanySettings>(safeSettings);
-    const [tab, setTab] = useState<'intl' | 'domestic'>('intl');
+           {view === 'quote-editor' && (
+             <div className="h-full">
+               <QuoteEditor 
+                 initialQuote={editQuote}
+                 customers={customers}
+                 products={products}
+                 settings={settings}
+                 onSave={handleSaveQuote}
+                 onCancel={() => setView('quotes')}
+                 onExport={(q, fmt) => { setEditQuote(q); handleExport(q, fmt); }}
+                 t={t}
+               />
+             </div>
+           )}
 
-    const handleChange = (field: string, val: string) => setData({...data, [field]: val});
-    
-    // Nested update for domestic
-    const handleDomesticChange = (field: keyof typeof data.domestic, val: string) => {
-        setData({ ...data, domestic: { ...data.domestic, [field]: val }});
-    };
+           {view === 'contract-editor' && (
+             <div className="h-full">
+               <ContractEditor 
+                 initialContract={editContract}
+                 customers={customers}
+                 products={products}
+                 settings={settings}
+                 onSave={handleSaveContract}
+                 onCancel={() => setView('contracts')}
+                 onExport={(c, fmt) => { setEditContract(c); handleExport(c, fmt); }}
+                 t={t}
+               />
+             </div>
+           )}
 
-    const handleImage = (e: any, field: 'logoDataUrl' | 'stampDataUrl', isDomestic = false) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                if(isDomestic) {
-                    setData({...data, domestic: {...data.domestic, stampDataUrl: reader.result as string}});
-                } else {
-                    setData({...data, [field]: reader.result as string});
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+           {view === 'products' && (
+             <div className="max-w-6xl mx-auto">
+               <ProductsManager products={products} brands={brands} settings={settings} onSave={handleSaveProduct} onDelete={handleDeleteProduct} t={t} />
+             </div>
+           )}
 
-    return (
-        <div className="bg-white p-6 rounded-xl shadow border max-w-4xl">
-            <div className="flex border-b mb-6">
-                <button 
-                    className={`px-6 py-3 font-bold ${tab === 'intl' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
-                    onClick={() => setTab('intl')}
-                >
-                    International Profile
-                </button>
-                <button 
-                    className={`px-6 py-3 font-bold ${tab === 'domestic' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
-                    onClick={() => setTab('domestic')}
-                >
-                    {t('domesticInfo')} & {t('contractTerms')}
-                </button>
-            </div>
+           {view === 'brands' && (
+             <div className="max-w-6xl mx-auto">
+               <BrandsManager brands={brands} onSave={handleSaveBrand} onDelete={handleDeleteBrand} t={t} />
+             </div>
+           )}
 
-            <form onSubmit={e => { e.preventDefault(); onSave(data); }}>
-                {tab === 'intl' ? (
-                    <div className="space-y-6">
-                         <h4 className="font-bold text-blue-600">International Profile (For Quotes)</h4>
+           {view === 'users' && (
+             <div className="max-w-6xl mx-auto">
+               <UsersManager t={t} />
+             </div>
+           )}
 
-                         {/* Logo & Stamp */}
-                         <div className="grid grid-cols-2 gap-6">
-                             <div>
-                                 <label className="text-xs font-bold text-gray-500 block mb-2">Company Logo</label>
-                                 <div className="flex items-center space-x-4">
-                                      {data.logoDataUrl && <img src={data.logoDataUrl} className="h-12 object-contain border p-1" />}
-                                      <input type="file" accept="image/*" onChange={e => handleImage(e, 'logoDataUrl')} className="text-sm" />
-                                 </div>
-                             </div>
-                             <div>
-                                 <label className="text-xs font-bold text-gray-500 block mb-2">Company Stamp / Signature</label>
-                                 <div className="flex items-center space-x-4">
-                                      {data.stampDataUrl && <img src={data.stampDataUrl} className="h-12 object-contain border p-1" />}
-                                      <input type="file" accept="image/*" onChange={e => handleImage(e, 'stampDataUrl')} className="text-sm" />
-                                 </div>
-                             </div>
-                         </div>
-
-                         {/* Basic Info */}
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div><label className="text-xs font-bold text-gray-500">Company Name</label><input className="w-full p-2 border rounded" value={data.name} onChange={e => handleChange('name', e.target.value)}/></div>
-                             <div><label className="text-xs font-bold text-gray-500">Address</label><input className="w-full p-2 border rounded" value={data.address} onChange={e => handleChange('address', e.target.value)}/></div>
-                             <div><label className="text-xs font-bold text-gray-500">City</label><input className="w-full p-2 border rounded" value={data.city} onChange={e => handleChange('city', e.target.value)}/></div>
-                             <div><label className="text-xs font-bold text-gray-500">Country</label><input className="w-full p-2 border rounded" value={data.country} onChange={e => handleChange('country', e.target.value)}/></div>
-                             <div><label className="text-xs font-bold text-gray-500">Phone</label><input className="w-full p-2 border rounded" value={data.phone} onChange={e => handleChange('phone', e.target.value)}/></div>
-                             <div><label className="text-xs font-bold text-gray-500">Email</label><input className="w-full p-2 border rounded" value={data.email} onChange={e => handleChange('email', e.target.value)}/></div>
-                             <div><label className="text-xs font-bold text-gray-500 text-blue-600">Quote Number Prefix</label><input className="w-full p-2 border rounded font-mono" value={data.quotePrefix} onChange={e => handleChange('quotePrefix', e.target.value)} placeholder="e.g. LH-"/></div>
-                         </div>
-
-                         {/* Product Units Configuration */}
-                         <div>
-                             <label className="text-xs font-bold text-gray-500">Product Units (Comma separated)</label>
-                             <input 
-                                className="w-full p-2 border rounded text-sm" 
-                                value={data.productUnits || ''} 
-                                onChange={e => handleChange('productUnits', e.target.value)}
-                                placeholder="PCS, SET, BOX, KG..."
-                             />
-                         </div>
-
-                         {/* Bank Info */}
-                         <div><label className="text-xs font-bold text-gray-500">Bank Info (Appears on Quote)</label><textarea rows={3} className="w-full p-2 border rounded font-mono text-sm" value={data.bankInfo} onChange={e => handleChange('bankInfo', e.target.value)}/></div>
-
-                         {/* Exchange Rates */}
-                         <div className="bg-gray-50 p-4 rounded border">
-                             <h5 className="font-bold text-gray-700 text-sm mb-3 flex items-center"><Coins size={16} className="mr-2"/> Exchange Rates (Base: 1 USD)</h5>
-                             <div className="grid grid-cols-3 gap-4">
-                                 <div>
-                                     <label className="text-xs font-bold text-gray-500">USD to CNY</label>
-                                     <input type="number" step="0.01" className="w-full p-2 border rounded" value={data.exchangeRates?.['CNY'] || 7.2} onChange={e => setData({...data, exchangeRates: {...data.exchangeRates, 'CNY': parseFloat(e.target.value)}})}/>
-                                 </div>
-                                 <div>
-                                     <label className="text-xs font-bold text-gray-500">USD to EUR</label>
-                                     <input type="number" step="0.01" className="w-full p-2 border rounded" value={data.exchangeRates?.['EUR'] || 0.92} onChange={e => setData({...data, exchangeRates: {...data.exchangeRates, 'EUR': parseFloat(e.target.value)}})}/>
-                                 </div>
-                                  <div>
-                                     <label className="text-xs font-bold text-gray-500">USD to GBP</label>
-                                     <input type="number" step="0.01" className="w-full p-2 border rounded" value={data.exchangeRates?.['GBP'] || 0.79} onChange={e => setData({...data, exchangeRates: {...data.exchangeRates, 'GBP': parseFloat(e.target.value)}})}/>
-                                 </div>
-                             </div>
-                         </div>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        <h4 className="font-bold text-orange-600">国内供方信息 (用于购销合同)</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className="text-xs font-bold text-gray-500">公司名称</label><input className="w-full p-2 border rounded" value={data.domestic?.name || ''} onChange={e => handleDomesticChange('name', e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-gray-500">联系人 (代理人)</label><input className="w-full p-2 border rounded" value={data.domestic?.contact || ''} onChange={e => handleDomesticChange('contact', e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-gray-500">电话</label><input className="w-full p-2 border rounded" value={data.domestic?.phone || ''} onChange={e => handleDomesticChange('phone', e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-gray-500">传真</label><input className="w-full p-2 border rounded" value={data.domestic?.fax || ''} onChange={e => handleDomesticChange('fax', e.target.value)}/></div>
-                            <div className="md:col-span-2"><label className="text-xs font-bold text-gray-500">地址</label><input className="w-full p-2 border rounded" value={data.domestic?.address || ''} onChange={e => handleDomesticChange('address', e.target.value)}/></div>
-                            <div className="md:col-span-2"><label className="text-xs font-bold text-gray-500">纳税人识别号</label><input className="w-full p-2 border rounded" value={data.domestic?.taxId || ''} onChange={e => handleDomesticChange('taxId', e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-gray-500">开户行</label><input className="w-full p-2 border rounded" value={data.domestic?.bankName || ''} onChange={e => handleDomesticChange('bankName', e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-gray-500">账号</label><input className="w-full p-2 border rounded" value={data.domestic?.bankAccount || ''} onChange={e => handleDomesticChange('bankAccount', e.target.value)}/></div>
-                            <div><label className="text-xs font-bold text-gray-500 text-blue-600">合同编号前缀</label><input className="w-full p-2 border rounded font-mono" value={data.domestic?.contractPrefix || ''} onChange={e => handleDomesticChange('contractPrefix', e.target.value)} placeholder="e.g. ULHTZH"/></div>
-                        </div>
-                        
-                        <div>
-                             <label className="text-xs font-bold text-gray-500">合同公章 (用于合同盖章)</label>
-                             <div className="flex items-center space-x-4">
-                                 {data.domestic?.stampDataUrl && <img src={data.domestic.stampDataUrl} className="h-16" />}
-                                 <input type="file" onChange={e => handleImage(e, 'stampDataUrl', true)} />
-                             </div>
-                        </div>
-
-                        <div className="pt-4 border-t">
-                            <label className="text-xs font-bold text-gray-500 block mb-2">{t('contractTerms')}</label>
-                            <textarea 
-                                className="w-full p-4 border rounded h-48 font-serif text-sm" 
-                                value={data.domestic?.contractTerms || ''} 
-                                onChange={e => handleDomesticChange('contractTerms', e.target.value)}
-                            />
-                        </div>
-                    </div>
-                )}
-                <div className="mt-6 flex justify-end">
-                    <button className="bg-blue-600 text-white px-6 py-2 rounded">{t('save')}</button>
+           {view === 'customers' && (
+             <div className="max-w-6xl mx-auto space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                     <h2 className="text-2xl font-bold text-gray-800">{t('customers')}</h2>
+                     <button onClick={() => {
+                        const name = prompt(t('company'));
+                        if(name) handleSaveCustomer({ 
+                             id: generateId(), 
+                             name, 
+                             contactPerson: '', 
+                             email: '', 
+                             phone: '', 
+                             address: '', 
+                             city: '', 
+                             country: '', 
+                             zipCode: '', 
+                             taxId: '', 
+                             source: 'Manual',
+                             region: 'International' // Default
+                        } as Customer)
+                     }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition">
+                        <Plus size={18} className="mr-2" /> {t('add')} {t('customers')}
+                     </button>
                 </div>
-            </form>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {customers.map(c => (
+                        <div key={c.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 relative group">
+                            <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleDeleteCustomer(c.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                            </div>
+                            <div className="mb-3">
+                                <h3 className="font-bold text-lg text-gray-800">{c.name}</h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${c.region === 'Domestic' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        {c.region === 'Domestic' ? t('domestic') : t('international')}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="space-y-2 text-sm text-gray-600">
+                                <div className="grid grid-cols-1 gap-2">
+                                     <input className="w-full border-b border-dashed border-gray-300 focus:border-blue-500 outline-none py-1 bg-transparent" value={c.contactPerson} onChange={e => handleSaveCustomer({...c, contactPerson: e.target.value})} placeholder={t('contact')} />
+                                     <input className="w-full border-b border-dashed border-gray-300 focus:border-blue-500 outline-none py-1 bg-transparent" value={c.email} onChange={e => handleSaveCustomer({...c, email: e.target.value})} placeholder="Email" />
+                                     <input className="w-full border-b border-dashed border-gray-300 focus:border-blue-500 outline-none py-1 bg-transparent" value={c.phone} onChange={e => handleSaveCustomer({...c, phone: e.target.value})} placeholder="Phone" />
+                                     <input className="w-full border-b border-dashed border-gray-300 focus:border-blue-500 outline-none py-1 bg-transparent" value={c.address} onChange={e => handleSaveCustomer({...c, address: e.target.value})} placeholder="Address" />
+                                </div>
+                                
+                                {/* Region Specific Fields Toggle */}
+                                <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase">Region Type</label>
+                                        <select 
+                                            className="w-full mt-1 p-1 border rounded text-xs"
+                                            value={c.region || 'International'}
+                                            onChange={e => handleSaveCustomer({...c, region: e.target.value as CustomerRegion})}
+                                        >
+                                            <option value="International">International</option>
+                                            <option value="Domestic">Domestic (China)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                         <label className="block text-xs font-bold text-gray-400 uppercase">{t('taxId')}</label>
+                                         <input className="w-full mt-1 p-1 border rounded text-xs" value={c.taxId || ''} onChange={e => handleSaveCustomer({...c, taxId: e.target.value})} />
+                                    </div>
+                                </div>
+
+                                {c.region === 'Domestic' && (
+                                    <div className="grid grid-cols-2 gap-4 bg-orange-50 p-2 rounded">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-orange-400 uppercase">{t('bankName')}</label>
+                                            <input className="w-full mt-1 p-1 border border-orange-200 rounded text-xs bg-white" value={c.bankName || ''} onChange={e => handleSaveCustomer({...c, bankName: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-orange-400 uppercase">{t('bankAccount')}</label>
+                                            <input className="w-full mt-1 p-1 border border-orange-200 rounded text-xs bg-white" value={c.bankAccount || ''} onChange={e => handleSaveCustomer({...c, bankAccount: e.target.value})} />
+                                        </div>
+                                    </div>
+                                )}
+                                {c.region !== 'Domestic' && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <input className="p-1 border rounded text-xs" value={c.city || ''} onChange={e => handleSaveCustomer({...c, city: e.target.value})} placeholder="City" />
+                                        <input className="p-1 border rounded text-xs" value={c.country || ''} onChange={e => handleSaveCustomer({...c, country: e.target.value})} placeholder="Country" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+             </div>
+           )}
+
+           {view === 'settings' && (
+             <div className="max-w-4xl mx-auto space-y-6">
+                <h2 className="text-2xl font-bold text-gray-800">{t('settings')}</h2>
+                
+                {/* Global / International Settings */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 className="font-bold text-blue-600 uppercase text-sm mb-4 border-b pb-2">International Entity (For Quotes)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('company')}</label>
+                                <input className="w-full p-2 border rounded" value={settings.name} onChange={e => handleSaveSettings({...settings, name: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address</label>
+                                <textarea className="w-full p-2 border rounded" rows={2} value={settings.address} onChange={e => handleSaveSettings({...settings, address: e.target.value})} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <input className="p-2 border rounded" value={settings.city} onChange={e => handleSaveSettings({...settings, city: e.target.value})} placeholder="City" />
+                                <input className="p-2 border rounded" value={settings.country} onChange={e => handleSaveSettings({...settings, country: e.target.value})} placeholder="Country" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <input className="p-2 border rounded" value={settings.email} onChange={e => handleSaveSettings({...settings, email: e.target.value})} placeholder="Email" />
+                                <input className="p-2 border rounded" value={settings.phone} onChange={e => handleSaveSettings({...settings, phone: e.target.value})} placeholder="Phone" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Quote Prefix</label>
+                                <input className="w-full p-2 border rounded font-mono" value={settings.quotePrefix} onChange={e => handleSaveSettings({...settings, quotePrefix: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bank Info (Appears on Invoice)</label>
+                                <textarea className="w-full p-2 border rounded font-mono text-xs" rows={6} value={settings.bankInfo} onChange={e => handleSaveSettings({...settings, bankInfo: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company Logo (URL or Base64)</label>
+                                <input className="w-full p-2 border rounded text-xs" value={settings.logoDataUrl} onChange={e => handleSaveSettings({...settings, logoDataUrl: e.target.value})} />
+                                {settings.logoDataUrl && <img src={settings.logoDataUrl} alt="Logo Preview" className="h-10 mt-2 object-contain" />}
+                            </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Stamp / Chop (Base64)</label>
+                                <input className="w-full p-2 border rounded text-xs" value={settings.stampDataUrl} onChange={e => handleSaveSettings({...settings, stampDataUrl: e.target.value})} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Domestic Settings */}
+                <div className="bg-orange-50 p-6 rounded-xl shadow-sm border border-orange-100">
+                    <h3 className="font-bold text-orange-600 uppercase text-sm mb-4 border-b border-orange-200 pb-2">{t('domesticInfo')} (For Contracts)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('company')}</label>
+                                <input className="w-full p-2 border rounded" value={settings.domestic?.name || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, name: e.target.value}})} />
+                            </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address</label>
+                                <input className="w-full p-2 border rounded" value={settings.domestic?.address || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, address: e.target.value}})} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('contact')}</label>
+                                    <input className="w-full p-2 border rounded" value={settings.domestic?.contact || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, contact: e.target.value}})} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone</label>
+                                    <input className="w-full p-2 border rounded" value={settings.domestic?.phone || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, phone: e.target.value}})} />
+                                </div>
+                            </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contract Prefix</label>
+                                <input className="w-full p-2 border rounded font-mono" value={settings.domestic?.contractPrefix || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, contractPrefix: e.target.value}})} />
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('taxId')}</label>
+                                <input className="w-full p-2 border rounded" value={settings.domestic?.taxId || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, taxId: e.target.value}})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('bankName')}</label>
+                                <input className="w-full p-2 border rounded" value={settings.domestic?.bankName || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, bankName: e.target.value}})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{t('bankAccount')}</label>
+                                <input className="w-full p-2 border rounded" value={settings.domestic?.bankAccount || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, bankAccount: e.target.value}})} />
+                            </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Domestic Stamp (Base64)</label>
+                                <input className="w-full p-2 border rounded text-xs" value={settings.domestic?.stampDataUrl || ''} onChange={e => handleSaveSettings({...settings, domestic: {...settings.domestic!, stampDataUrl: e.target.value}})} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* System Configuration */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h3 className="font-bold text-gray-700 uppercase text-sm mb-4 border-b pb-2">Configuration</h3>
+                    <div className="space-y-4">
+                        <div>
+                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Product Unit Options (comma separated)</label>
+                             <input className="w-full p-2 border rounded" value={settings.productUnits || ''} onChange={e => handleSaveSettings({...settings, productUnits: e.target.value})} />
+                        </div>
+                        <div>
+                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Exchange Rates (Base USD = 1)</label>
+                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                 {Object.entries(settings.exchangeRates || {}).map(([curr, rate]) => (
+                                     <div key={curr} className="flex items-center space-x-2">
+                                         <span className="font-bold text-gray-600 w-8">{curr}</span>
+                                         <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            className="w-full p-1 border rounded" 
+                                            value={rate} 
+                                            onChange={e => handleSaveSettings({...settings, exchangeRates: {...settings.exchangeRates, [curr]: parseFloat(e.target.value)}})}
+                                          />
+                                     </div>
+                                 ))}
+                             </div>
+                        </div>
+                    </div>
+                </div>
+             </div>
+           )}
         </div>
-    );
+      </main>
+    </div>
+  );
 };
