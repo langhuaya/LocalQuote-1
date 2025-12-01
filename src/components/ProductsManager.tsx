@@ -31,7 +31,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     // Multi-select state
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [showSimpleQuote, setShowSimpleQuote] = useState(false);
-    const [showQuoteImages, setShowQuoteImages] = useState(true); // New: Toggle images in simple quote
+    const [showQuoteImages, setShowQuoteImages] = useState(true);
+    const [quoteCurrency, setQuoteCurrency] = useState<'USD' | 'CNY'>('USD'); // New: Currency toggle state
     
     // Import state
     const [isImporting, setIsImporting] = useState(false);
@@ -56,8 +57,6 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-        // FIX: Do NOT clear selectedIds here to allow selection across searches
-        // setSelectedIds([]); 
     }, [searchTerm, selectedBrand, itemsPerPage]);
 
     // Pagination Logic
@@ -250,8 +249,6 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                 const brand = p.brand || 'Other';
                 if (!grouped[brand]) grouped[brand] = [];
                 
-                // Flatten data structure for Excel
-                // IMPORTANT: Excluding Image Data
                 const primarySupplier = p.suppliers?.find(s => s.isDefault) || p.suppliers?.[0];
                 
                 const row = {
@@ -272,7 +269,6 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
 
             // Create a sheet for each brand
             Object.keys(grouped).sort().forEach(brand => {
-                // Excel sheet names max 31 chars
                 const safeName = brand.substring(0, 31).replace(/[:\\\/?*\[\]]/g, ""); 
                 const ws = XLSX.utils.json_to_sheet(grouped[brand]);
                 XLSX.utils.book_append_sheet(wb, ws, safeName || "Sheet1");
@@ -296,22 +292,17 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                 
                 const importedProducts: Product[] = [];
                 
-                // Iterate through all sheets
                 wb.SheetNames.forEach(sheetName => {
                     const ws = wb.Sheets[sheetName];
                     const data = XLSX.utils.sheet_to_json(ws);
                     
                     data.forEach((row: any) => {
-                        // Minimal validation: SKU is required
                         if (!row.SKU) return;
                         
-                        // Map row back to Product structure
-                        // Note: Using 'sheetName' as brand fallback if brand column empty is optional, 
-                        // but user said labels are based on brand.
                         const brand = row.Brand || (sheetName === 'Other' || sheetName === 'Sheet1' ? '' : sheetName);
                         
                         const p: Product = {
-                            id: generateId(), // New ID by default
+                            id: generateId(),
                             sku: String(row.SKU).trim(),
                             name: row.Name || '',
                             brand: brand,
@@ -320,7 +311,6 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                             currency: row.Currency || 'USD',
                             description: row.Description || '',
                             note: row.Note || '',
-                            // Supplier info
                             supplierName: row.Supplier,
                             supplierReference: row.SupplierRef,
                             cost: parseFloat(row.Cost) || 0,
@@ -328,13 +318,12 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                             updatedAt: new Date().toISOString()
                         };
 
-                        // Construct default supplier info
                         if (p.supplierName || p.cost) {
                             p.suppliers = [{
                                 id: generateId(),
                                 name: p.supplierName || 'Unknown',
                                 cost: p.cost || 0,
-                                currency: p.currency, // Defaulting to same currency
+                                currency: p.currency,
                                 reference: p.supplierReference,
                                 hasStock: true,
                                 isDefault: true
@@ -346,7 +335,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                 });
 
                 if (importedProducts.length > 0) {
-                    if (confirm(`Found ${importedProducts.length} items. Import now? \n(Existing SKUs will be updated, Images preserved if exists)`)) {
+                    if (confirm(`Found ${importedProducts.length} items. Import now? \n(Existing SKUs will be updated)`)) {
                          for (const newP of importedProducts) {
                              const existing = products.find(ex => ex.sku === newP.sku);
                              if (existing) {
@@ -366,7 +355,6 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                 alert("Failed to parse Excel file.");
             } finally {
                 setIsImporting(false);
-                // Reset file input
                 e.target.value = '';
             }
         };
@@ -432,11 +420,28 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                     <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-lg text-gray-800">{t('simpleQuote')}</h3>
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-6">
+                                {/* Currency Toggle */}
+                                <div className="flex items-center bg-gray-200 rounded-lg p-1">
+                                    <button 
+                                        onClick={() => setQuoteCurrency('USD')}
+                                        className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${quoteCurrency === 'USD' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        USD
+                                    </button>
+                                    <button 
+                                        onClick={() => setQuoteCurrency('CNY')}
+                                        className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${quoteCurrency === 'CNY' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        CNY
+                                    </button>
+                                </div>
+
                                 <label className="flex items-center space-x-2 cursor-pointer select-none text-sm text-gray-600 hover:text-gray-900">
                                     <input type="checkbox" checked={showQuoteImages} onChange={e => setShowQuoteImages(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500"/>
                                     <span>显示图片</span>
                                 </label>
+                                <div className="h-6 w-px bg-gray-300"></div>
                                 <button onClick={() => setShowSimpleQuote(false)} className="text-gray-500 hover:text-red-600"><X size={24}/></button>
                             </div>
                         </div>
@@ -454,13 +459,15 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                         <th className="p-3 text-left">SKU / Model</th>
                                         <th className="p-3 text-left">Brand</th>
                                         <th className="p-3 text-left">Description</th>
-                                        <th className="p-3 text-right">Price (USD)</th>
-                                        <th className="p-3 text-right">Price (CNY)</th>
+                                        <th className="p-3 text-right">Price ({quoteCurrency})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {products.filter(p => selectedIds.includes(p.id)).map((p, index) => {
                                         const prices = getConvertedPrices(p);
+                                        const displayPrice = quoteCurrency === 'USD' ? prices.usd : prices.cny;
+                                        const displaySymbol = quoteCurrency === 'USD' ? 'USD' : '¥';
+
                                         return (
                                             <tr key={p.id} className="border-b border-gray-200">
                                                 <td className="p-3 text-center text-gray-500">{index + 1}</td>
@@ -474,11 +481,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                                 <td className="p-3 font-bold text-gray-800">{p.sku}</td>
                                                 <td className="p-3 text-gray-600">{p.brand}</td>
                                                 <td className="p-3 text-gray-600 max-w-xs">{p.name}</td>
-                                                <td className="p-3 text-right font-medium text-gray-700">
-                                                    USD {prices.usd.toFixed(2)}
-                                                </td>
                                                 <td className="p-3 text-right font-bold text-blue-600">
-                                                    ¥ {prices.cny.toFixed(2)}
+                                                    {displaySymbol} {displayPrice.toFixed(2)}
                                                 </td>
                                             </tr>
                                         );
