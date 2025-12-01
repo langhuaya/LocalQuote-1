@@ -31,6 +31,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     // Multi-select state
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [showSimpleQuote, setShowSimpleQuote] = useState(false);
+    const [showQuoteImages, setShowQuoteImages] = useState(true); // New: Toggle images in simple quote
     
     // Import state
     const [isImporting, setIsImporting] = useState(false);
@@ -55,7 +56,8 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-        setSelectedIds([]); // Clear selection on filter change
+        // FIX: Do NOT clear selectedIds here to allow selection across searches
+        // setSelectedIds([]); 
     }, [searchTerm, selectedBrand, itemsPerPage]);
 
     // Pagination Logic
@@ -67,10 +69,19 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
 
     // --- Selection Logic ---
     const handleSelectAll = () => {
-        if (selectedIds.length === paginatedProducts.length) {
-            setSelectedIds([]);
+        const pageIds = paginatedProducts.map(p => p.id);
+        const allSelected = pageIds.every(id => selectedIds.includes(id));
+
+        if (allSelected) {
+            // Deselect all on this page
+            setSelectedIds(selectedIds.filter(id => !pageIds.includes(id)));
         } else {
-            setSelectedIds(paginatedProducts.map(p => p.id));
+            // Select all on this page (merge unique)
+            const newIds = [...selectedIds];
+            pageIds.forEach(id => {
+                if (!newIds.includes(id)) newIds.push(id);
+            });
+            setSelectedIds(newIds);
         }
     };
 
@@ -87,6 +98,20 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
             selectedIds.forEach(id => onDelete(id));
             setSelectedIds([]);
         }
+    };
+
+    // --- Price Conversion Helper ---
+    const getRate = (curr: string) => settings.exchangeRates?.[curr] || 1;
+    
+    const getConvertedPrices = (p: Product) => {
+        const pRate = getRate(p.currency);
+        const usdPrice = p.price / pRate; // Convert to base USD first
+        const cnyRate = getRate('CNY');
+        
+        return {
+            usd: usdPrice,
+            cny: usdPrice * cnyRate
+        };
     };
 
     // --- Edit Logic ---
@@ -322,20 +347,13 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
 
                 if (importedProducts.length > 0) {
                     if (confirm(`Found ${importedProducts.length} items. Import now? \n(Existing SKUs will be updated, Images preserved if exists)`)) {
-                         // Process Import
-                         // We need to check if SKU exists to preserve ID and Images
                          for (const newP of importedProducts) {
                              const existing = products.find(ex => ex.sku === newP.sku);
                              if (existing) {
-                                 // Preserve ID and Image
                                  newP.id = existing.id;
                                  newP.imageDataUrl = existing.imageDataUrl;
                                  newP.createdAt = existing.createdAt;
-                                 // Update price history if changed (handled by backend usually, but here we just send data)
                              }
-                             // Call save for each (Parent component handles the API call)
-                             // Note: This might spam the server if list is huge. 
-                             // Ideally backend has a bulk import, but for this app structure we reuse onSave.
                              onSave(newP);
                          }
                          alert(t('importSuccess'));
@@ -356,11 +374,6 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
         reader.readAsBinaryString(file);
     };
 
-    const getRate = (curr: string) => {
-        if (curr === 'USD') return 1;
-        return settings.exchangeRates?.[curr] || 1;
-    };
-
     const calculateMargin = () => {
         const price = currentProduct.price || 0;
         const prodCurrency = currentProduct.currency || 'USD';
@@ -369,6 +382,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
         const cost = defaultSupplier.cost || 0;
         const suppCurrency = defaultSupplier.currency;
         if (price === 0) return 0;
+        
         let finalCostInProdCurrency = cost;
         if (prodCurrency !== suppCurrency) {
             const costInUSD = cost / getRate(suppCurrency);
@@ -415,10 +429,16 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
              {/* Simple Quote Preview Modal */}
              {showSimpleQuote && (
                 <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={() => setShowSimpleQuote(false)}>
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-lg text-gray-800">{t('simpleQuote')}</h3>
-                            <button onClick={() => setShowSimpleQuote(false)} className="text-gray-500 hover:text-red-600"><X size={24}/></button>
+                            <div className="flex items-center space-x-4">
+                                <label className="flex items-center space-x-2 cursor-pointer select-none text-sm text-gray-600 hover:text-gray-900">
+                                    <input type="checkbox" checked={showQuoteImages} onChange={e => setShowQuoteImages(e.target.checked)} className="rounded text-blue-600 focus:ring-blue-500"/>
+                                    <span>显示图片</span>
+                                </label>
+                                <button onClick={() => setShowSimpleQuote(false)} className="text-gray-500 hover:text-red-600"><X size={24}/></button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-auto p-8 bg-white" id="simple-quote-area">
                             {/* Simple Quote Table Layout */}
@@ -429,27 +449,40 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                             <table className="w-full border-collapse text-sm">
                                 <thead>
                                     <tr className="bg-gray-100 border-t border-b border-gray-300">
-                                        <th className="p-3 text-left">Image</th>
+                                        <th className="p-3 text-center w-12">#</th>
+                                        {showQuoteImages && <th className="p-3 text-left w-16">Image</th>}
                                         <th className="p-3 text-left">SKU / Model</th>
                                         <th className="p-3 text-left">Brand</th>
                                         <th className="p-3 text-left">Description</th>
-                                        <th className="p-3 text-right">Price</th>
+                                        <th className="p-3 text-right">Price (USD)</th>
+                                        <th className="p-3 text-right">Price (CNY)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {products.filter(p => selectedIds.includes(p.id)).map(p => (
-                                        <tr key={p.id} className="border-b border-gray-200">
-                                            <td className="p-3">
-                                                 {p.imageDataUrl ? (
-                                                    <img src={p.imageDataUrl} className="w-12 h-12 object-contain border rounded bg-white" alt="" />
-                                                 ) : <div className="w-12 h-12 bg-gray-50 rounded flex items-center justify-center text-gray-300"><ImageIcon size={16}/></div>}
-                                            </td>
-                                            <td className="p-3 font-bold text-gray-800">{p.sku}</td>
-                                            <td className="p-3 text-gray-600">{p.brand}</td>
-                                            <td className="p-3 text-gray-600 max-w-xs">{p.name}</td>
-                                            <td className="p-3 text-right font-bold text-blue-600">{p.currency} {p.price.toFixed(2)}</td>
-                                        </tr>
-                                    ))}
+                                    {products.filter(p => selectedIds.includes(p.id)).map((p, index) => {
+                                        const prices = getConvertedPrices(p);
+                                        return (
+                                            <tr key={p.id} className="border-b border-gray-200">
+                                                <td className="p-3 text-center text-gray-500">{index + 1}</td>
+                                                {showQuoteImages && (
+                                                    <td className="p-3">
+                                                        {p.imageDataUrl ? (
+                                                            <img src={p.imageDataUrl} className="w-12 h-12 object-contain border rounded bg-white" alt="" />
+                                                        ) : <div className="w-12 h-12 bg-gray-50 rounded flex items-center justify-center text-gray-300"><ImageIcon size={16}/></div>}
+                                                    </td>
+                                                )}
+                                                <td className="p-3 font-bold text-gray-800">{p.sku}</td>
+                                                <td className="p-3 text-gray-600">{p.brand}</td>
+                                                <td className="p-3 text-gray-600 max-w-xs">{p.name}</td>
+                                                <td className="p-3 text-right font-medium text-gray-700">
+                                                    USD {prices.usd.toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-right font-bold text-blue-600">
+                                                    ¥ {prices.cny.toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                             <div className="mt-8 text-xs text-gray-400 text-center">
@@ -735,7 +768,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                         {/* Checkbox */}
                                         <th className="py-2 px-3 w-10 text-center">
                                             <button onClick={handleSelectAll} className="text-gray-500 hover:text-gray-700">
-                                                {selectedIds.length > 0 && selectedIds.length === paginatedProducts.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                {selectedIds.length > 0 && paginatedProducts.every(p => selectedIds.includes(p.id)) ? <CheckSquare size={18} /> : <Square size={18} />}
                                             </button>
                                         </th>
                                         {/* Brand First */}
