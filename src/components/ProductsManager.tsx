@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Currency, SupplierInfo, CompanySettings, Brand } from '../types';
-import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter, Download, Upload, Loader2 } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter, Download, Upload, Loader2, FileText, CheckSquare, Square } from 'lucide-react';
 import { generateId } from '../services/api';
 import * as XLSX from 'xlsx';
 
@@ -28,6 +28,10 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
 
     const [editingSuppliers, setEditingSuppliers] = useState<SupplierInfo[]>([]);
     
+    // Multi-select state
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [showSimpleQuote, setShowSimpleQuote] = useState(false);
+    
     // Import state
     const [isImporting, setIsImporting] = useState(false);
 
@@ -51,6 +55,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
+        setSelectedIds([]); // Clear selection on filter change
     }, [searchTerm, selectedBrand, itemsPerPage]);
 
     // Pagination Logic
@@ -60,6 +65,31 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
         currentPage * itemsPerPage
     );
 
+    // --- Selection Logic ---
+    const handleSelectAll = () => {
+        if (selectedIds.length === paginatedProducts.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(paginatedProducts.map(p => p.id));
+        }
+    };
+
+    const handleSelectRow = (id: string) => {
+        if (selectedIds.includes(id)) {
+            setSelectedIds(selectedIds.filter(sid => sid !== id));
+        } else {
+            setSelectedIds([...selectedIds, id]);
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (confirm(t('confirmBulkDelete'))) {
+            selectedIds.forEach(id => onDelete(id));
+            setSelectedIds([]);
+        }
+    };
+
+    // --- Edit Logic ---
     const handleEdit = (p: Product) => {
         let suppliersList = p.suppliers || [];
         if (suppliersList.length === 0 && (p.cost || p.supplierName)) {
@@ -363,7 +393,73 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     const marginColor = safeMargin < 10 ? 'text-red-600 bg-red-50' : safeMargin < 30 ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50';
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+             {/* Floating Bulk Action Bar */}
+             {selectedIds.length > 0 && (
+                 <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-40 flex items-center space-x-6 animate-in fade-in slide-in-from-bottom-4">
+                     <span className="font-bold text-sm">{selectedIds.length} {t('selectedItems')}</span>
+                     <div className="h-4 w-px bg-slate-700"></div>
+                     <button onClick={() => setShowSimpleQuote(true)} className="flex items-center hover:text-blue-300 transition-colors font-medium text-sm">
+                         <FileText size={16} className="mr-2" /> {t('generateSimpleQuote')}
+                     </button>
+                     <button onClick={handleBulkDelete} className="flex items-center hover:text-red-300 transition-colors font-medium text-sm">
+                         <Trash2 size={16} className="mr-2" /> {t('bulkDelete')}
+                     </button>
+                     <div className="h-4 w-px bg-slate-700"></div>
+                     <button onClick={() => setSelectedIds([])} className="hover:text-gray-300 transition-colors">
+                         <X size={16} />
+                     </button>
+                 </div>
+             )}
+
+             {/* Simple Quote Preview Modal */}
+             {showSimpleQuote && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={() => setShowSimpleQuote(false)}>
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                            <h3 className="font-bold text-lg text-gray-800">{t('simpleQuote')}</h3>
+                            <button onClick={() => setShowSimpleQuote(false)} className="text-gray-500 hover:text-red-600"><X size={24}/></button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-8 bg-white" id="simple-quote-area">
+                            {/* Simple Quote Table Layout */}
+                            <div className="text-center mb-6">
+                                <h1 className="text-2xl font-bold text-gray-800">{t('simpleQuote')}</h1>
+                                <p className="text-gray-500 text-sm mt-1">{new Date().toISOString().split('T')[0]}</p>
+                            </div>
+                            <table className="w-full border-collapse text-sm">
+                                <thead>
+                                    <tr className="bg-gray-100 border-t border-b border-gray-300">
+                                        <th className="p-3 text-left">Image</th>
+                                        <th className="p-3 text-left">SKU / Model</th>
+                                        <th className="p-3 text-left">Brand</th>
+                                        <th className="p-3 text-left">Description</th>
+                                        <th className="p-3 text-right">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {products.filter(p => selectedIds.includes(p.id)).map(p => (
+                                        <tr key={p.id} className="border-b border-gray-200">
+                                            <td className="p-3">
+                                                 {p.imageDataUrl ? (
+                                                    <img src={p.imageDataUrl} className="w-12 h-12 object-contain border rounded bg-white" alt="" />
+                                                 ) : <div className="w-12 h-12 bg-gray-50 rounded flex items-center justify-center text-gray-300"><ImageIcon size={16}/></div>}
+                                            </td>
+                                            <td className="p-3 font-bold text-gray-800">{p.sku}</td>
+                                            <td className="p-3 text-gray-600">{p.brand}</td>
+                                            <td className="p-3 text-gray-600 max-w-xs">{p.name}</td>
+                                            <td className="p-3 text-right font-bold text-blue-600">{p.currency} {p.price.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="mt-8 text-xs text-gray-400 text-center">
+                                Generated by SwiftQuote Pro
+                            </div>
+                        </div>
+                    </div>
+                </div>
+             )}
+
              {viewHistory && (
                  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden">
@@ -636,12 +732,17 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                             <table className="w-full">
                                 <thead className="bg-gray-50 text-left">
                                     <tr>
+                                        {/* Checkbox */}
+                                        <th className="py-2 px-3 w-10 text-center">
+                                            <button onClick={handleSelectAll} className="text-gray-500 hover:text-gray-700">
+                                                {selectedIds.length > 0 && selectedIds.length === paginatedProducts.length ? <CheckSquare size={18} /> : <Square size={18} />}
+                                            </button>
+                                        </th>
                                         {/* Brand First */}
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('brand')}</th>
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('sku')}</th>
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('name')}</th>
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase w-32 text-right">{t('price')}</th>
-                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('suppliers')}</th>
                                         <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('entryTime')}</th>
                                         <th className="py-2 px-3 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                                         {/* Image Last */}
@@ -649,8 +750,17 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {paginatedProducts.map((p: Product) => (
-                                        <tr key={p.id} className="hover:bg-gray-50 group transition-colors">
+                                    {paginatedProducts.map((p: Product) => {
+                                        const isSelected = selectedIds.includes(p.id);
+                                        return (
+                                        <tr key={p.id} className={`hover:bg-gray-50 group transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
+                                            {/* Checkbox */}
+                                            <td className="py-2 px-3 text-center">
+                                                <button onClick={() => handleSelectRow(p.id)} className={`${isSelected ? 'text-blue-600' : 'text-gray-300 hover:text-gray-500'}`}>
+                                                    {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                                </button>
+                                            </td>
+
                                             {/* Brand */}
                                             <td className="py-2 px-3 text-sm text-gray-600 whitespace-nowrap">{p.brand || '-'}</td>
                                             
@@ -673,21 +783,6 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                                         {Number(p.price || 0).toFixed(2)}
                                                     </span>
                                                 </div>
-                                            </td>
-
-                                            {/* Suppliers */}
-                                            <td className="py-2 px-3 hidden md:table-cell">
-                                                {p.suppliers && p.suppliers.length > 0 ? (
-                                                    <div className="space-y-0.5">
-                                                        {p.suppliers.slice(0, 1).map(s => (
-                                                            <div key={s.id} className="flex items-center text-xs">
-                                                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0 ${s.hasStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                                                <span className={`truncate max-w-[120px] ${s.isDefault ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>{s.name}</span>
-                                                            </div>
-                                                        ))}
-                                                        {p.suppliers.length > 1 && <div className="text-[10px] text-gray-400 pl-3">+{p.suppliers.length - 1}</div>}
-                                                    </div>
-                                                ) : <span className="text-gray-300 text-xs">-</span>}
                                             </td>
 
                                             {/* Entry Time */}
@@ -715,7 +810,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                                 )}
                                             </td>
                                         </tr>
-                                    ))}
+                                    )})}
                                     {paginatedProducts.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>}
                                 </tbody>
                             </table>
