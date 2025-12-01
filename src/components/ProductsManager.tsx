@@ -849,7 +849,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
 
                                             {/* Created Time */}
                                             <td className="py-2 px-3 hidden md:table-cell">
-                                                <span className="text-xs text-gray-500 whitespace-nowrap">{p.createdAt ? p.createdAt.split(' ')[0] : '-'}</span>
+                                                <span className="text-xs text-gray-500 whitespace-nowrap">{p.createdAt ? p.createdAt.substring(0, 16).replace('T', ' ') : '-'}</span>
                                             </td>
                                             
                                             {/* Created By */}
