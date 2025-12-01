@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LayoutDashboard, FileText, Package, Users, Settings, Plus, Search, Download, Edit, Trash2, Globe, Menu, X, Loader2, Image as ImageIcon, LogOut, Shield, Coins, Tag, FileSignature
+  LayoutDashboard, FileText, Package, Users, Settings, Plus, Search, Download, Edit, Trash2, Globe, Menu, X, Loader2, Image as ImageIcon, LogOut, Shield, Coins, Tag, FileSignature, TrendingUp, Clock, ArrowRight, DollarSign, Calendar
 } from 'lucide-react';
 import { api, generateId } from './services/api';
 import { storageService } from './services/storageService';
@@ -119,7 +119,17 @@ const TRANSLATIONS = {
     contractPlace: 'Sign Place',
     noData: 'No data available',
     createdTime: 'Created Time',
-    createdUser: 'Created By'
+    createdUser: 'Created By',
+    // Dashboard
+    totalRevenue: 'Est. Revenue',
+    pendingQuotes: 'Pending Quotes',
+    recentActivity: 'Recent Activity',
+    quickActions: 'Quick Actions',
+    exchangeRates: 'Exchange Rates',
+    goodMorning: 'Good Morning',
+    goodAfternoon: 'Good Afternoon',
+    goodEvening: 'Good Evening',
+    viewAll: 'View All'
   },
   zh: {
     dashboard: '仪表盘',
@@ -219,7 +229,17 @@ const TRANSLATIONS = {
     contractPlace: '签订地点',
     noData: '暂无数据',
     createdTime: '创建时间',
-    createdUser: '创建人'
+    createdUser: '创建人',
+    // Dashboard
+    totalRevenue: '合同总额',
+    pendingQuotes: '报价单数量',
+    recentActivity: '最近动态',
+    quickActions: '快捷操作',
+    exchangeRates: '参考汇率',
+    goodMorning: '早上好',
+    goodAfternoon: '下午好',
+    goodEvening: '晚上好',
+    viewAll: '查看全部'
   }
 };
 
@@ -480,7 +500,19 @@ export default function App() {
         return <UsersManager t={t} />;
       case 'dashboard':
       default:
-        return <Dashboard quotes={quotes} contracts={contracts} t={t} />;
+        // Updated: Pass all required data to Dashboard
+        return <Dashboard 
+                  quotes={quotes} 
+                  contracts={contracts} 
+                  products={products} 
+                  customers={customers} 
+                  settings={settings}
+                  onNewQuote={() => { setEditingQuote(null); navigateTo('quote-editor'); }}
+                  onNewContract={() => { setEditingContract(null); navigateTo('contract-editor'); }}
+                  onViewQuotes={() => navigateTo('quotes')}
+                  onViewContracts={() => navigateTo('contracts')}
+                  t={t} 
+                />;
     }
   };
 
@@ -551,15 +583,176 @@ const SidebarItem = ({ icon, label, active, onClick }: any) => (
     </button>
 );
 
-const Dashboard = ({ quotes, contracts, t }: any) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow border">
-            <h3 className="font-bold text-gray-700 mb-2">{t('quotes')}</h3>
-            <p className="text-3xl font-bold">{quotes.length}</p>
+const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuote, onNewContract, onViewQuotes, onViewContracts, t }: any) => {
+    // Greeting Logic
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? t('goodMorning') : hour < 18 ? t('goodAfternoon') : t('goodEvening');
+    const username = localStorage.getItem('user_fullName') || localStorage.getItem('username') || 'User';
+
+    // Stats
+    const totalContractValue = contracts.reduce((acc: number, c: Contract) => acc + (c.totalAmount || 0), 0);
+    const recentQuotes = quotes.slice(0, 5);
+    const recentContracts = contracts.slice(0, 5);
+
+    return (
+        <div className="space-y-6">
+            {/* Welcome Banner */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-8 text-white shadow-lg flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold mb-2">{greeting}, {username}!</h1>
+                    <p className="opacity-90">Welcome to SwiftQuote Pro. Here is what's happening today.</p>
+                </div>
+                <div className="hidden md:block opacity-20">
+                    <TrendingUp size={80} />
+                </div>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard 
+                    title={t('pendingQuotes')} 
+                    value={quotes.length} 
+                    icon={<FileText className="text-blue-600" size={24}/>} 
+                    bg="bg-blue-50" 
+                    sub="Latest"
+                />
+                <StatCard 
+                    title={t('totalRevenue')} 
+                    value={`¥ ${(totalContractValue / 10000).toFixed(2)} W`} 
+                    icon={<FileSignature className="text-green-600" size={24}/>} 
+                    bg="bg-green-50" 
+                    sub={`${contracts.length} Contracts`}
+                />
+                <StatCard 
+                    title={t('products')} 
+                    value={products.length} 
+                    icon={<Package className="text-orange-600" size={24}/>} 
+                    bg="bg-orange-50" 
+                    sub="Active SKUs"
+                />
+                <StatCard 
+                    title={t('customers')} 
+                    value={customers.length} 
+                    icon={<Users className="text-purple-600" size={24}/>} 
+                    bg="bg-purple-50" 
+                    sub="Global Clients"
+                />
+            </div>
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column: Recent Activity */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Recent Quotes */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 className="font-bold text-gray-800 flex items-center"><Clock size={16} className="mr-2 text-gray-400"/> {t('recentActivity')} - {t('quotes')}</h3>
+                            <button onClick={onViewQuotes} className="text-xs text-blue-600 font-medium hover:underline flex items-center">{t('viewAll')} <ArrowRight size={12} className="ml-1"/></button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <tbody className="divide-y divide-gray-50">
+                                    {recentQuotes.map((q: Quote) => (
+                                        <tr key={q.id} className="hover:bg-blue-50 transition-colors">
+                                            <td className="p-3 text-blue-600 font-medium">{q.number}</td>
+                                            <td className="p-3 text-gray-600">{q.customerSnapshot?.name}</td>
+                                            <td className="p-3 text-gray-500">{q.date}</td>
+                                            <td className="p-3 text-right font-bold text-gray-700">{q.currency} {q.total.toFixed(2)}</td>
+                                            <td className="p-3 text-right">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${q.status === 'Accepted' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                    {q.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {recentQuotes.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-gray-400">{t('noData')}</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Recent Contracts */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 className="font-bold text-gray-800 flex items-center"><FileSignature size={16} className="mr-2 text-gray-400"/> {t('recentActivity')} - {t('contracts')}</h3>
+                            <button onClick={onViewContracts} className="text-xs text-blue-600 font-medium hover:underline flex items-center">{t('viewAll')} <ArrowRight size={12} className="ml-1"/></button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <tbody className="divide-y divide-gray-50">
+                                    {recentContracts.map((c: Contract) => (
+                                        <tr key={c.id} className="hover:bg-green-50 transition-colors">
+                                            <td className="p-3 text-green-700 font-medium">{c.contractNumber}</td>
+                                            <td className="p-3 text-gray-600">{c.customerSnapshot?.name}</td>
+                                            <td className="p-3 text-gray-500">{c.date}</td>
+                                            <td className="p-3 text-right font-bold text-gray-700">¥ {c.totalAmount.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                    {recentContracts.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-gray-400">{t('noData')}</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column: Quick Actions & Info */}
+                <div className="space-y-6">
+                    {/* Quick Actions */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                         <h3 className="font-bold text-gray-800 mb-4">{t('quickActions')}</h3>
+                         <div className="space-y-3">
+                             <button onClick={onNewQuote} className="w-full flex items-center p-3 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all group">
+                                 <div className="bg-blue-100 text-blue-600 p-2 rounded-lg mr-3 group-hover:bg-blue-600 group-hover:text-white transition-colors"><Plus size={18} /></div>
+                                 <div className="text-left">
+                                     <div className="font-bold text-gray-700 group-hover:text-blue-700 text-sm">{t('newQuote')}</div>
+                                     <div className="text-xs text-gray-400">Create a commercial quote</div>
+                                 </div>
+                             </button>
+                             <button onClick={onNewContract} className="w-full flex items-center p-3 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 transition-all group">
+                                 <div className="bg-green-100 text-green-600 p-2 rounded-lg mr-3 group-hover:bg-green-600 group-hover:text-white transition-colors"><FileSignature size={18} /></div>
+                                 <div className="text-left">
+                                     <div className="font-bold text-gray-700 group-hover:text-green-700 text-sm">{t('new')} {t('contracts')}</div>
+                                     <div className="text-xs text-gray-400">Domestic sales contract</div>
+                                 </div>
+                             </button>
+                         </div>
+                    </div>
+
+                    {/* Exchange Rates Widget */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-4 border-b bg-gray-50">
+                             <h3 className="font-bold text-gray-800 text-sm">{t('exchangeRates')}</h3>
+                             <p className="text-xs text-gray-400">Base: 1 USD</p>
+                        </div>
+                        <div className="divide-y">
+                            {Object.entries(settings.exchangeRates || {}).map(([currency, rate]) => (
+                                <div key={currency} className="p-3 flex justify-between items-center text-sm">
+                                    <div className="flex items-center">
+                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">
+                                            {currency.substring(0,2)}
+                                        </div>
+                                        <span className="font-medium text-gray-700">{currency}</span>
+                                    </div>
+                                    <span className="font-mono font-bold">{Number(rate).toFixed(4)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow border">
-            <h3 className="font-bold text-gray-700 mb-2">{t('contracts')}</h3>
-            <p className="text-3xl font-bold">{contracts.length}</p>
+    );
+};
+
+const StatCard = ({ title, value, icon, bg, sub }: any) => (
+    <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-start justify-between">
+        <div>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">{title}</p>
+            <h3 className="text-2xl font-bold text-gray-800 mb-1">{value}</h3>
+            <p className="text-xs text-gray-400">{sub}</p>
+        </div>
+        <div className={`p-3 rounded-lg ${bg}`}>
+            {icon}
         </div>
     </div>
 );
