@@ -636,66 +636,83 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                             <table className="w-full">
                                 <thead className="bg-gray-50 text-left">
                                     <tr>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase w-16">Img</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('sku')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('name')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('brand')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase w-32 text-right">{t('price')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('suppliers')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('entryTime')}</th>
-                                        <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
+                                        {/* Brand First */}
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('brand')}</th>
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('sku')}</th>
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase">{t('name')}</th>
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase w-32 text-right">{t('price')}</th>
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('suppliers')}</th>
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('entryTime')}</th>
+                                        <th className="py-2 px-3 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
+                                        {/* Image Last */}
+                                        <th className="py-2 px-3 text-xs font-bold text-gray-500 uppercase w-16 text-center">Img</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {paginatedProducts.map((p: Product) => (
                                         <tr key={p.id} className="hover:bg-gray-50 group transition-colors">
-                                            <td className="p-4 align-top">
-                                                {p.imageDataUrl ? (
-                                                    <img src={p.imageDataUrl} alt="Product" className="w-10 h-10 object-contain border rounded bg-white" />
-                                                ) : (
-                                                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-300">
-                                                        <ImageIcon size={16} />
-                                                    </div>
-                                                )}
+                                            {/* Brand */}
+                                            <td className="py-2 px-3 text-sm text-gray-600 whitespace-nowrap">{p.brand || '-'}</td>
+                                            
+                                            {/* SKU */}
+                                            <td className="py-2 px-3 text-sm font-bold text-gray-700 whitespace-nowrap">{p.sku}</td>
+                                            
+                                            {/* Name */}
+                                            <td className="py-2 px-3 text-sm text-gray-600">
+                                                <div className="flex items-center">
+                                                    <span className="truncate max-w-[200px]" title={p.name}>{p.name || '-'}</span>
+                                                    {p.unit && <span className="text-xs text-gray-400 ml-1 whitespace-nowrap">({p.unit})</span>}
+                                                </div>
                                             </td>
-                                            <td className="p-4 font-bold text-gray-700 align-top">{p.sku}</td>
-                                            <td className="p-4 align-top">
-                                                <div className="font-medium text-gray-800">{p.name || '-'}</div>
-                                                <div className="text-xs text-gray-400">{p.unit}</div>
-                                            </td>
-                                            <td className="p-4 align-top text-sm text-gray-600">{p.brand || '-'}</td>
-                                            {/* Optimized Price Display: Separated Currency and Amount */}
-                                            <td className="p-4 align-top text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <span className="text-[10px] text-gray-400 font-semibold mb-0.5">{p.currency}</span>
-                                                    <span className="font-mono text-blue-700 font-bold text-base leading-none">
+
+                                            {/* Price */}
+                                            <td className="py-2 px-3 text-right">
+                                                <div className="flex justify-end items-center gap-1">
+                                                    <span className="text-[10px] text-gray-400 font-semibold">{p.currency}</span>
+                                                    <span className="font-mono text-blue-700 font-bold text-sm">
                                                         {Number(p.price || 0).toFixed(2)}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="p-4 hidden md:table-cell align-top">
+
+                                            {/* Suppliers */}
+                                            <td className="py-2 px-3 hidden md:table-cell">
                                                 {p.suppliers && p.suppliers.length > 0 ? (
-                                                    <div className="space-y-1">
-                                                        {p.suppliers.slice(0, 2).map(s => (
+                                                    <div className="space-y-0.5">
+                                                        {p.suppliers.slice(0, 1).map(s => (
                                                             <div key={s.id} className="flex items-center text-xs">
-                                                                <span className={`w-2 h-2 rounded-full mr-2 flex-shrink-0 ${s.hasStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                                                <span className={`${s.isDefault ? 'font-bold text-gray-800' : 'text-gray-500'} truncate max-w-[150px]`}>{s.name}</span>
-                                                                {s.isDefault && <Star size={10} className="ml-1 text-orange-500 fill-orange-500" />}
+                                                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0 ${s.hasStock ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                                <span className={`truncate max-w-[120px] ${s.isDefault ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>{s.name}</span>
                                                             </div>
                                                         ))}
-                                                        {p.suppliers.length > 2 && <div className="text-[10px] text-gray-400 pl-4">+{p.suppliers.length - 2} more...</div>}
+                                                        {p.suppliers.length > 1 && <div className="text-[10px] text-gray-400 pl-3">+{p.suppliers.length - 1}</div>}
                                                     </div>
                                                 ) : <span className="text-gray-300 text-xs">-</span>}
                                             </td>
-                                            <td className="p-4 hidden md:table-cell align-top">
-                                                <span className="text-xs text-gray-500 whitespace-nowrap">{p.createdAt || '-'}</span>
+
+                                            {/* Entry Time */}
+                                            <td className="py-2 px-3 hidden md:table-cell">
+                                                <span className="text-xs text-gray-500 whitespace-nowrap">{p.createdAt ? p.createdAt.split(' ')[0] : '-'}</span>
                                             </td>
-                                            <td className="p-4 text-right">
-                                                <div className="flex justify-end space-x-2">
-                                                    <button onClick={() => setViewHistory(p)} className="p-2 text-gray-500 hover:bg-gray-100 rounded transition-colors"><History size={18} /></button>
-                                                    <button onClick={() => handleEdit(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"><Edit size={18} /></button>
-                                                    <button onClick={() => onDelete(p.id)} className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 size={18} /></button>
+
+                                            {/* Actions */}
+                                            <td className="py-2 px-3 text-right">
+                                                <div className="flex justify-end space-x-1">
+                                                    <button onClick={() => setViewHistory(p)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"><History size={16} /></button>
+                                                    <button onClick={() => handleEdit(p)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"><Edit size={16} /></button>
+                                                    <button onClick={() => onDelete(p.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
                                                 </div>
+                                            </td>
+
+                                            {/* Image (Last) */}
+                                            <td className="py-2 px-3 text-center">
+                                                {p.imageDataUrl ? (
+                                                    <img src={p.imageDataUrl} alt="" className="w-8 h-8 object-contain border rounded bg-white inline-block" />
+                                                ) : (
+                                                    <div className="w-8 h-8 bg-gray-50 rounded inline-flex items-center justify-center text-gray-300">
+                                                        <ImageIcon size={14} />
+                                                    </div>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -706,14 +723,14 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
 
                         {/* Pagination Footer */}
                         {filtered.length > 0 && (
-                            <div className="bg-gray-50 border-t p-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+                            <div className="bg-gray-50 border-t p-3 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
                                 <div className="text-gray-500">
-                                    Showing <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold">{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of <span className="font-bold">{filtered.length}</span> results
+                                    Showing <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold">{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of <span className="font-bold">{filtered.length}</span>
                                 </div>
                                 
                                 <div className="flex items-center space-x-4">
                                     <div className="flex items-center space-x-2">
-                                        <span className="text-gray-500">Rows per page:</span>
+                                        <span className="text-gray-500">Rows:</span>
                                         <select 
                                             className="border rounded p-1 bg-white outline-none focus:ring-1 focus:ring-blue-500"
                                             value={itemsPerPage}
@@ -732,7 +749,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                             disabled={currentPage === 1}
                                             className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
                                         >
-                                            <ChevronLeft size={20} />
+                                            <ChevronLeft size={16} />
                                         </button>
                                         <div className="flex items-center px-2 font-medium text-gray-700">
                                             {currentPage} / {totalPages}
@@ -742,7 +759,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                             disabled={currentPage === totalPages}
                                             className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
                                         >
-                                            <ChevronRight size={20} />
+                                            <ChevronRight size={16} />
                                         </button>
                                     </div>
                                 </div>
