@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Product, Currency, SupplierInfo, CompanySettings, Brand } from '../types';
-import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, ExternalLink, Star, Check, RefreshCw, FileText, Image as ImageIcon, UploadCloud } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, History, X, Truck, Tag, DollarSign, Image as ImageIcon, Check, Star, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { generateId } from '../services/api';
 
 interface ProductsManagerProps {
@@ -19,17 +19,41 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
     const [searchTerm, setSearchTerm] = useState('');
     const [viewHistory, setViewHistory] = useState<Product | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    
+    // Pagination & Filter State
+    const [itemsPerPage, setItemsPerPage] = useState(30);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedBrand, setSelectedBrand] = useState('All');
 
     const [editingSuppliers, setEditingSuppliers] = useState<SupplierInfo[]>([]);
 
     // Derive units from settings or default to English standard units
     const unitsList = (settings.productUnits || 'PCS, SET, BOX, CTN, KG, M, ROLL, PACK, PAIR, UNIT').split(',').map(u => u.trim()).filter(Boolean);
 
-    const filtered = products.filter((p: Product) => 
-        (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.supplierName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.brand || '').toLowerCase().includes(searchTerm.toLowerCase())
+    // Filtering Logic
+    const filtered = useMemo(() => {
+        return products.filter((p: Product) => {
+            const matchesSearch = (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                  (p.supplierName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                  (p.brand || '').toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const matchesBrand = selectedBrand === 'All' || p.brand === selectedBrand;
+            
+            return matchesSearch && matchesBrand;
+        });
+    }, [products, searchTerm, selectedBrand]);
+
+    // Reset page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, selectedBrand, itemsPerPage]);
+
+    // Pagination Logic
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const paginatedProducts = filtered.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
     );
 
     const handleEdit = (p: Product) => {
@@ -413,16 +437,38 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                  </div>
              ) : (
                 <>
-                    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-                         <div className="relative w-full md:w-80">
-                            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                            <input className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder={t('search')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+                    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                         <div className="flex flex-col md:flex-row gap-4 w-full xl:w-auto">
+                            <div className="relative flex-grow md:w-80">
+                                <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                                <input 
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm" 
+                                    placeholder={t('search')} 
+                                    value={searchTerm} 
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <div className="relative min-w-[180px]">
+                                <Filter className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                                <select 
+                                    className="w-full pl-10 pr-8 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white appearance-none cursor-pointer"
+                                    value={selectedBrand}
+                                    onChange={(e) => setSelectedBrand(e.target.value)}
+                                >
+                                    <option value="All">All Brands</option>
+                                    {brands.map(b => (
+                                        <option key={b.id} value={b.name}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition w-full md:w-auto justify-center">
-                            <Plus size={20} className="mr-2" /> {t('new')} {t('products')}
+
+                        <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition w-full xl:w-auto justify-center text-sm font-medium whitespace-nowrap">
+                            <Plus size={18} className="mr-2" /> {t('new')} {t('products')}
                         </button>
                     </div>
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-gray-50 text-left">
@@ -431,14 +477,14 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('sku')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('name')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase">{t('brand')}</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase w-32">{t('price')}</th>
+                                        <th className="p-4 text-xs font-bold text-gray-500 uppercase w-32 text-right">{t('price')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('suppliers')}</th>
                                         <th className="p-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">{t('entryTime')}</th>
                                         <th className="p-4 text-right text-xs font-bold text-gray-500 uppercase">{t('actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {filtered.map((p: Product) => (
+                                    {paginatedProducts.map((p: Product) => (
                                         <tr key={p.id} className="hover:bg-gray-50 group transition-colors">
                                             <td className="p-4 align-top">
                                                 {p.imageDataUrl ? (
@@ -455,8 +501,14 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                                 <div className="text-xs text-gray-400">{p.unit}</div>
                                             </td>
                                             <td className="p-4 align-top text-sm text-gray-600">{p.brand || '-'}</td>
-                                            <td className="p-4 align-top">
-                                                <div className="font-mono text-blue-700 font-bold">{p.currency} {Number(p.price || 0).toFixed(2)}</div>
+                                            {/* Optimized Price Display: Separated Currency and Amount */}
+                                            <td className="p-4 align-top text-right">
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-[10px] text-gray-400 font-semibold mb-0.5">{p.currency}</span>
+                                                    <span className="font-mono text-blue-700 font-bold text-base leading-none">
+                                                        {Number(p.price || 0).toFixed(2)}
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="p-4 hidden md:table-cell align-top">
                                                 {p.suppliers && p.suppliers.length > 0 ? (
@@ -484,10 +536,55 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                             </td>
                                         </tr>
                                     ))}
-                                    {filtered.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>}
+                                    {paginatedProducts.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-gray-400">{t('noData')}</td></tr>}
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Pagination Footer */}
+                        {filtered.length > 0 && (
+                            <div className="bg-gray-50 border-t p-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm">
+                                <div className="text-gray-500">
+                                    Showing <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold">{Math.min(currentPage * itemsPerPage, filtered.length)}</span> of <span className="font-bold">{filtered.length}</span> results
+                                </div>
+                                
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-2">
+                                        <span className="text-gray-500">Rows per page:</span>
+                                        <select 
+                                            className="border rounded p-1 bg-white outline-none focus:ring-1 focus:ring-blue-500"
+                                            value={itemsPerPage}
+                                            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                        >
+                                            <option value={30}>30</option>
+                                            <option value={40}>40</option>
+                                            <option value={50}>50</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex space-x-1">
+                                        <button 
+                                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                            disabled={currentPage === 1}
+                                            className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                                        >
+                                            <ChevronLeft size={20} />
+                                        </button>
+                                        <div className="flex items-center px-2 font-medium text-gray-700">
+                                            {currentPage} / {totalPages}
+                                        </div>
+                                        <button 
+                                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                            disabled={currentPage === totalPages}
+                                            className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:hover:bg-transparent"
+                                        >
+                                            <ChevronRight size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </>
              )}
