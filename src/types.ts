@@ -107,6 +107,12 @@ export interface DomesticCompanyInfo {
   contractPrefix: string; 
 }
 
+export interface AiConfig {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
 export interface CompanySettings {
   // International Info
   name: string;
@@ -124,6 +130,9 @@ export interface CompanySettings {
 
   // New: Domestic Info
   domestic: DomesticCompanyInfo;
+  
+  // New: AI Configuration
+  ai?: AiConfig;
 }
 
 export interface QuoteItem {

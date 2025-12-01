@@ -41,6 +41,9 @@ export const api = {
       const res = await fetch(`${API_URL}/settings`, { headers: getHeaders() });
       return res.ok ? res.json() : null;
   },
-  saveSettings: async (s) => fetch(`${API_URL}/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(s) })
+  saveSettings: async (s) => fetch(`${API_URL}/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(s) }),
+
+  // AI Chat
+  chatWithAi: async (messages: any[]) => (await fetch(`${API_URL}/ai/chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ messages }) })).json(),
 };
 export const generateId = () => Math.random().toString(36).substring(2, 9);

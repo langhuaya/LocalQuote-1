@@ -96,6 +96,51 @@ app.delete('/api/users/:id', authenticateToken, (req, res) => {
   });
 });
 
+// --- AI Chat Proxy ---
+app.post('/api/ai/chat', authenticateToken, (req, res) => {
+    const { messages } = req.body;
+    
+    // Retrieve settings to get the API Key
+    db.get("SELECT data FROM settings WHERE id = 1", async (err, row) => {
+        if (err || !row) return res.status(500).json({ error: "System settings not found. Please save settings first." });
+        
+        try {
+            const settings = JSON.parse(row.data);
+            const aiConfig = settings.ai || {};
+            
+            if (!aiConfig.apiKey) {
+                return res.status(400).json({ error: "AI API Key is missing. Please configure it in System Settings." });
+            }
+            
+            // Construct the request to the AI Provider
+            const baseUrl = (aiConfig.baseUrl || 'https://yunwu.ai/v1').replace(/\/$/, ''); // Remove trailing slash
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${aiConfig.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: aiConfig.model || 'gpt-3.5-turbo',
+                    messages: messages,
+                    temperature: 0.7
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                return res.status(response.status).json({ error: `AI Provider Error: ${errorText}` });
+            }
+
+            const data = await response.json();
+            res.json(data);
+        } catch (error) {
+            console.error("AI Request Failed:", error);
+            res.status(500).json({ error: "Internal Server Error during AI request." });
+        }
+    });
+});
+
 // --- Generic CRUD ---
 const getAll = (table, res) => {
   db.all(`SELECT data FROM ${table} ORDER BY rowid DESC`, [], (err, rows) => {

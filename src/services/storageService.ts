@@ -57,7 +57,7 @@ export const storageService = {
           },
           domestic: {
              name: '深圳市劲浩伟业科技有限公司',
-             address: '深圳市宝安区新桥街道新桥社区新桥三路 27 号卓越时代大厦 601',
+             address: '深圳市宝安区新桥街道新桥三路 27 号卓越时代大厦 601',
              contact: '欧小姐',
              phone: '0755-82519902',
              fax: '0755-82519902',
@@ -67,6 +67,11 @@ export const storageService = {
              stampDataUrl: '',
              contractTerms: DEFAULT_DOMESTIC_TERMS,
              contractPrefix: 'ULHTZH'
+          },
+          ai: {
+              apiKey: '',
+              baseUrl: 'https://yunwu.ai/v1',
+              model: 'gpt-3.5-turbo'
           }
         };
     }
@@ -94,6 +99,14 @@ export const storageService = {
     // Polyfill units
     if (!settings.productUnits) {
         settings.productUnits = 'PCS, SET, BOX, CTN, KG, M, ROLL, PACK, PAIR, UNIT, KIT, DRUM, BAG, DOZ';
+    }
+    // Polyfill AI
+    if (!settings.ai) {
+        settings.ai = {
+            apiKey: '',
+            baseUrl: 'https://yunwu.ai/v1',
+            model: 'gpt-3.5-turbo'
+        };
     }
     
     return settings;
