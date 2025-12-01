@@ -62,12 +62,13 @@ const TRANSLATIONS = {
     price: 'Price',
     cost: 'Cost',
     unit: 'Unit',
-    suppliers: 'Suppliers',
-    addSupplier: 'Add Supplier',
+    suppliers: 'Channels',
+    addSupplier: 'Add Channel',
+    channelName: 'Channel Name',
     noStock: 'No Stock',
     hasStock: 'In Stock',
     stock: 'Stock',
-    supplierRef: 'Supplier Ref/Link',
+    supplierRef: 'Reference/Link',
     margin: 'Margin',
     salesInfo: 'Sales Info',
     desc: 'Description',
@@ -78,7 +79,7 @@ const TRANSLATIONS = {
     // Brands
     addBrand: 'Add Brand',
     description: 'Description',
-    suppliersCount: 'Suppliers Count',
+    suppliersCount: 'Channels Count',
     // Quotes/Contracts
     number: 'Number',
     date: 'Date',
@@ -151,8 +152,9 @@ const TRANSLATIONS = {
     price: '销售单价',
     cost: '成本价',
     unit: '单位',
-    suppliers: '供应商信息',
-    addSupplier: '添加供应商',
+    suppliers: '渠道信息',
+    addSupplier: '添加渠道',
+    channelName: '渠道名称',
     noStock: '无货',
     hasStock: '有现货',
     stock: '库存',
@@ -167,7 +169,7 @@ const TRANSLATIONS = {
     // Brands
     addBrand: '添加品牌',
     description: '描述/备注',
-    suppliersCount: '供应商数量',
+    suppliersCount: '渠道数量',
     // Quotes/Contracts
     number: '编号',
     date: '日期',
@@ -898,7 +900,7 @@ const SettingsManager = ({ settings, onSave, t }: any) => {
                                 className="w-full p-2 border rounded text-sm" 
                                 value={data.productUnits || ''} 
                                 onChange={e => handleChange('productUnits', e.target.value)}
-                                placeholder="PCS, SET, BOX, KG..."
+                                placeholder="PCS, SET, BOX, CTN, KG, M, ROLL, PACK, PAIR, UNIT, KIT, DRUM, BAG, DOZ"
                              />
                          </div>
 

@@ -381,7 +381,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                             <div className="flex justify-between items-start mb-3">
                                                 <div className="flex items-center">
                                                     {supplier.isDefault && <Star size={14} className="text-orange-500 mr-1 fill-orange-500" />}
-                                                    <span className="text-xs font-bold text-gray-500 uppercase">Supplier #{index + 1}</span>
+                                                    <span className="text-xs font-bold text-gray-500 uppercase">Channel #{index + 1}</span>
                                                 </div>
                                                 <div className="flex space-x-2">
                                                     {!supplier.isDefault && (
@@ -398,7 +398,7 @@ export const ProductsManager: React.FC<ProductsManagerProps> = ({ products, bran
                                             </div>
 
                                             <div className="space-y-3">
-                                                <input className="w-full p-2 border rounded text-sm" placeholder={t('name')} value={supplier.name} onChange={e => handleUpdateSupplier(supplier.id, 'name', e.target.value)}/>
+                                                <input className="w-full p-2 border rounded text-sm" placeholder={t('channelName')} value={supplier.name} onChange={e => handleUpdateSupplier(supplier.id, 'name', e.target.value)}/>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div className="relative">
                                                         <input type="number" step="0.01" className="w-full pl-6 p-2 border rounded text-sm font-mono" placeholder={t('cost')} value={supplier.cost} onChange={e => handleUpdateSupplier(supplier.id, 'cost', parseFloat(e.target.value))}/>

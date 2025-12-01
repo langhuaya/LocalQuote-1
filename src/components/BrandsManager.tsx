@@ -109,13 +109,13 @@ export const BrandsManager: React.FC<BrandsManagerProps> = ({ brands, onSave, on
                     {editingSuppliers.map((supplier, index) => (
                         <div key={supplier.id} className="p-4 rounded-lg border border-gray-200 bg-gray-50">
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs font-bold text-gray-500 uppercase">Supplier #{index + 1}</span>
+                                <span className="text-xs font-bold text-gray-500 uppercase">Channel #{index + 1}</span>
                                 <button type="button" onClick={() => handleRemoveSupplier(supplier.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16}/></button>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <input 
                                     className="w-full p-2 border rounded text-sm"
-                                    placeholder={t('name')}
+                                    placeholder={t('channelName')}
                                     value={supplier.name}
                                     onChange={e => handleUpdateSupplier(supplier.id, 'name', e.target.value)}
                                 />
