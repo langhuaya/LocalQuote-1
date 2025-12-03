@@ -279,6 +279,7 @@ export default function App() {
   const [printQuote, setPrintQuote] = useState<Quote | null>(null);
   const [printContract, setPrintContract] = useState<Contract | null>(null);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'image'>('pdf');
+  const [printOptions, setPrintOptions] = useState({ showImages: true });
 
   const t = (key: keyof typeof TRANSLATIONS['en']) => TRANSLATIONS[lang][key] || key;
 
@@ -433,10 +434,16 @@ export default function App() {
   };
 
   // --- Export Logic ---
-  const handleExport = async (doc: Quote | Contract, format: 'pdf' | 'image', type: 'quote' | 'contract') => {
+  const handleExport = async (
+      doc: Quote | Contract, 
+      format: 'pdf' | 'image', 
+      type: 'quote' | 'contract', 
+      options: { showImages: boolean } = { showImages: true }
+  ) => {
     if (isGeneratingPdf) return;
     setIsGeneratingPdf(true);
     setExportFormat(format);
+    setPrintOptions(options);
     
     if (type === 'quote') setPrintQuote(doc as Quote);
     else setPrintContract(doc as Contract);
@@ -498,7 +505,7 @@ export default function App() {
   const renderContent = () => {
     switch (currentView) {
       case 'quote-editor':
-        return <QuoteEditor initialQuote={editingQuote} customers={customers} products={products} settings={settings} onSave={handleSaveQuote} onCancel={() => navigateTo('quotes')} onExport={(q, f) => handleExport(q, f, 'quote')} t={t} />;
+        return <QuoteEditor initialQuote={editingQuote} customers={customers} products={products} settings={settings} onSave={handleSaveQuote} onCancel={() => navigateTo('quotes')} onExport={(q, f, opts) => handleExport(q, f, 'quote', opts)} t={t} />;
       case 'contract-editor':
         return <ContractEditor initialContract={editingContract} customers={customers} products={products} settings={settings} onSave={handleSaveContract} onCancel={() => navigateTo('contracts')} onExport={(c, f) => handleExport(c, f, 'contract')} t={t} />;
       case 'quotes':
@@ -590,7 +597,7 @@ export default function App() {
 
       {printQuote && (
           <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1 }}>
-              <InvoiceTemplate ref={printQuoteRef} quote={printQuote} settings={settings} mode="generate" />
+              <InvoiceTemplate ref={printQuoteRef} quote={printQuote} settings={settings} mode="generate" showImages={printOptions.showImages} />
           </div>
       )}
       {printContract && (

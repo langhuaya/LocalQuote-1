@@ -6,9 +6,10 @@ interface InvoiceTemplateProps {
   quote: Quote;
   settings: CompanySettings;
   mode?: 'preview' | 'generate' | 'hidden';
+  showImages?: boolean;
 }
 
-export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ quote, settings, mode = 'preview' }, ref) => {
+export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(({ quote, settings, mode = 'preview', showImages = true }, ref) => {
   const { customerSnapshot: customer, items } = quote;
 
   // A4 Layout Constants
@@ -132,12 +133,13 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="border-b border-slate-300">
-                            <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[8%]">Image</th>
-                            <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[32%]">Description</th>
+                            {showImages && (
+                                <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[8%]">Image</th>
+                            )}
+                            <th className={`pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider ${showImages ? 'w-[32%]' : 'w-[40%]'}`}>Description</th>
                             <th className="pb-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Brand</th>
                             <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Lead Time</th>
                             <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Qty</th>
-                            {/* Increased padding right for Price to separate it from Amount */}
                             <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[15%] pr-8">Price</th>
                             <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[15%]">Amount</th>
                         </tr>
@@ -145,13 +147,15 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                     <tbody className="text-sm">
                         {items.map((item, idx) => (
                             <tr key={item.id} className="border-b border-slate-100 last:border-0 group">
-                                <td className="py-4 align-top">
-                                    {item.imageDataUrl ? (
-                                        <img src={item.imageDataUrl} alt="" className="w-12 h-12 object-contain bg-white border border-slate-100 rounded p-0.5" />
-                                    ) : (
-                                        <div className="w-12 h-12 bg-slate-50 rounded flex items-center justify-center text-[9px] text-slate-300">No Img</div>
-                                    )}
-                                </td>
+                                {showImages && (
+                                    <td className="py-4 align-top">
+                                        {item.imageDataUrl ? (
+                                            <img src={item.imageDataUrl} alt="" className="w-12 h-12 object-contain bg-white border border-slate-100 rounded p-0.5" />
+                                        ) : (
+                                            <div className="w-12 h-12 bg-slate-50 rounded flex items-center justify-center text-[9px] text-slate-300">No Img</div>
+                                        )}
+                                    </td>
+                                )}
                                 <td className="py-4 align-top pr-4">
                                     <p className="font-bold text-slate-800 text-sm mb-0.5">{item.sku}</p>
                                     <p className="text-slate-600 text-xs leading-relaxed">{item.name}</p>
@@ -161,7 +165,6 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                                 <td className="py-4 align-top text-right font-medium">
                                     {item.quantity} <span className="text-xs text-slate-400 font-normal">{item.unit}</span>
                                 </td>
-                                {/* Added pr-8 to Price cell to match header and create gap */}
                                 <td className="py-4 align-top text-right text-slate-600 pr-8">{fmt(item.price)}</td>
                                 <td className="py-4 align-top text-right font-bold text-slate-800">{fmt(item.price * item.quantity)}</td>
                             </tr>
@@ -175,7 +178,6 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                 {/* Bank Info / Left Side */}
                 <div className="w-[55%] pr-8">
                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Payment Details</h4>
-                     {/* Reduced leading and padding for tighter bank info */}
                      <div className="bg-slate-50 p-3 rounded text-xs text-slate-600 leading-snug border border-slate-100 font-mono">
                          <div className="whitespace-pre-wrap">{settings.bankInfo}</div>
                      </div>

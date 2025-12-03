@@ -13,7 +13,7 @@ interface QuoteEditorProps {
   settings: CompanySettings;
   onSave: (quote: Quote) => void;
   onCancel: () => void;
-  onExport: (quote: Quote, format: 'pdf' | 'image') => void;
+  onExport: (quote: Quote, format: 'pdf' | 'image', options?: { showImages: boolean }) => void;
   t: (key: string) => string;
 }
 
@@ -306,6 +306,9 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
   
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Export Options
+  const [showImages, setShowImages] = useState(true);
 
   useEffect(() => {
     if (initialQuote) {
@@ -498,9 +501,20 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
             <h2 className="text-xl font-bold text-gray-800 md:hidden">{initialQuote ? t('edit') : t('newQuote')}</h2>
         </div>
         <h2 className="text-xl font-bold text-gray-800 hidden md:block">{initialQuote ? t('edit') : t('newQuote')}</h2>
-        <div className="flex space-x-2 w-full md:w-auto overflow-x-auto">
+        <div className="flex items-center space-x-2 w-full md:w-auto overflow-x-auto">
+             {/* Toggle Images Checkbox */}
+             <label className="flex items-center space-x-2 cursor-pointer text-sm select-none mr-2 bg-white px-3 py-2 rounded border hover:bg-gray-50 transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={showImages} 
+                  onChange={e => setShowImages(e.target.checked)} 
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                />
+                <span className="font-medium text-gray-600">Show Images</span>
+             </label>
+
              <button
-              onClick={() => onExport(getPreviewData(), 'image')}
+              onClick={() => onExport(getPreviewData(), 'image', { showImages })}
               className="flex-1 md:flex-none flex items-center justify-center bg-orange-100 text-orange-700 px-4 py-2 rounded hover:bg-orange-200 transition-colors whitespace-nowrap"
             >
               <ImageIcon size={18} className="mr-2" /> {t('exportImage')}
@@ -728,13 +742,13 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                     <h3 className="font-bold text-lg text-gray-800">{t('preview')}</h3>
                     <div className="flex items-center space-x-3">
                          <button
-                          onClick={() => onExport(getPreviewData(), 'image')}
+                          onClick={() => onExport(getPreviewData(), 'image', { showImages })}
                           className="flex items-center justify-center bg-orange-100 text-orange-700 px-3 py-1.5 rounded hover:bg-orange-200 transition-colors text-sm font-medium"
                         >
                           <ImageIcon size={16} className="mr-2" /> {t('exportImage')}
                         </button>
                         <button
-                          onClick={() => onExport(getPreviewData(), 'pdf')}
+                          onClick={() => onExport(getPreviewData(), 'pdf', { showImages })}
                           className="flex items-center justify-center bg-green-100 text-green-700 px-3 py-1.5 rounded hover:bg-green-200 transition-colors text-sm font-medium"
                         >
                           <Download size={16} className="mr-2" /> {t('exportPdf')}
@@ -748,7 +762,7 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
                 {/* Updated: Added overflow-auto to handle the fixed-width A4 invoice on mobile */}
                 <div className="flex-1 bg-gray-200 overflow-auto p-2 md:p-8 relative">
                      <div className="min-w-fit mx-auto">
-                        <InvoiceTemplate quote={getPreviewData()} settings={settings} mode="preview" />
+                        <InvoiceTemplate quote={getPreviewData()} settings={settings} mode="preview" showImages={showImages} />
                      </div>
                 </div>
             </div>
