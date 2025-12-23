@@ -419,7 +419,7 @@ export default function App() {
       alert(t('save') + ' Success!'); 
   };
 
-  // --- High-Quality Export Logic (Fixed Slicing) ---
+  // --- REFINED PDF GENERATION LOGIC ---
   const handleExport = async (
       doc: Quote | Contract, 
       format: 'pdf' | 'image', 
@@ -439,18 +439,15 @@ export default function App() {
         const ref = type === 'quote' ? printQuoteRef.current : printContractRef.current;
         if (ref) {
             try {
-                // FIXED: Force standard A4 capture width (794px) and high scale
-                // This ensures we capture the "Desktop" layout regardless of current browser view
-                const canvas = await html2canvas(ref, { 
-                    scale: 2, 
-                    useCORS: true, 
-                    backgroundColor: '#ffffff',
-                    width: 794,
-                    windowWidth: 794, // Critical for avoiding "mobile squashed" look
-                    logging: false
-                });
-
                 if (format === 'image') {
+                    // Images still use high-scale capture
+                    const canvas = await html2canvas(ref, { 
+                      scale: 3, 
+                      useCORS: true, 
+                      backgroundColor: '#ffffff',
+                      width: 794,
+                      windowWidth: 794
+                    });
                     canvas.toBlob((blob) => {
                         if (blob) {
                             const url = URL.createObjectURL(blob);
@@ -462,37 +459,30 @@ export default function App() {
                         }
                     }, 'image/png');
                 } else {
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-                    const pdfWidth = 210; 
-                    const pdfHeight = 297; 
-                    
-                    // Standard proportions: Height = Width * 1.414
-                    const imgWidth = canvas.width;
-                    const imgHeight = canvas.height;
-                    
-                    // In PDF units
-                    const renderedImgHeight = (imgHeight * pdfWidth) / imgWidth;
-                    
-                    let heightLeft = renderedImgHeight;
-                    let position = 0;
-                    let pageCount = 0;
+                    // USE jspdf.html() FOR PDF - IT RESPECTS CSS PAGE BREAKS (break-inside: avoid)
+                    const pdf = new jsPDF({
+                        orientation: 'p',
+                        unit: 'mm',
+                        format: 'a4',
+                        compress: true
+                    });
 
-                    // Add first page
-                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, renderedImgHeight, undefined, 'FAST');
-                    heightLeft -= pdfHeight;
-                    pageCount++;
-
-                    // Add extra pages if content overflows
-                    while (heightLeft > 0) {
-                        position = -(pageCount * pdfHeight);
-                        pdf.addPage();
-                        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, renderedImgHeight, undefined, 'FAST');
-                        heightLeft -= pdfHeight;
-                        pageCount++;
-                    }
-
-                    pdf.save(`${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.pdf`);
+                    // LOCK windowWidth to 794 (A4 at 96dpi) to prevent "mobile layout" issue
+                    await pdf.html(ref, {
+                        callback: function (docOutput) {
+                            docOutput.save(`${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.pdf`);
+                        },
+                        x: 0,
+                        y: 0,
+                        width: 210, // A4 target width in mm
+                        windowWidth: 794, // Standard A4 pixel width
+                        autoPaging: 'text', // Avoid slicing text mid-line
+                        html2canvas: {
+                            scale: 0.2645, // Map 1px to 0.2645mm precisely
+                            useCORS: true,
+                            logging: false,
+                        }
+                    });
                 }
             } catch (err) {
                 console.error("Export failed", err);
@@ -555,7 +545,7 @@ export default function App() {
             <div className="fixed inset-0 bg-black bg-opacity-70 z-[9999] flex flex-col items-center justify-center text-white backdrop-blur-sm">
                 <Loader2 className="animate-spin w-16 h-16 mb-4 text-blue-400" />
                 <p className="text-xl font-bold tracking-widest">{t('generating')}</p>
-                <p className="text-sm text-gray-300 mt-2">Finalizing professional document layout...</p>
+                <p className="text-sm text-gray-300 mt-2">Intelligent pagination in progress...</p>
             </div>
         )}
 

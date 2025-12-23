@@ -126,7 +126,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             </div>
 
             {/* --- PRODUCT TABLE --- */}
-            <div className="mb-8 flex-grow">
+            <div className="mb-8 flex-grow overflow-visible">
                 <table className="w-full border-collapse">
                     <thead>
                         <tr className="border-b-2 border-slate-300">
@@ -174,7 +174,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             <div className="flex justify-between items-start mb-8 no-split pt-6 border-t border-slate-200">
                 <div className="w-[58%] pr-8">
                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Payment Details</h4>
-                     <div className="bg-slate-50 p-5 rounded-lg border border-slate-100 text-[11px] text-slate-600 font-mono leading-normal whitespace-pre-wrap shadow-inner">
+                     <div className="bg-slate-50 p-5 rounded-lg border border-slate-100 text-[11px] text-slate-600 font-mono leading-normal whitespace-pre-wrap shadow-inner overflow-hidden">
                         {settings.bankInfo}
                      </div>
 
