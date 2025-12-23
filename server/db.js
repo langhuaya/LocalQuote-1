@@ -34,14 +34,31 @@ function initDb() {
     fullName TEXT,
     email TEXT,
     phone TEXT
-  )`);
+  )`, (err) => {
+      if (err) console.error("Error creating users table:", err);
+      else {
+          // Check for missing columns for older databases
+          db.all("PRAGMA table_info(users)", (err, columns) => {
+            const names = columns.map(c => c.name);
+            if (!names.includes('fullName')) db.run("ALTER TABLE users ADD COLUMN fullName TEXT");
+            if (!names.includes('email')) db.run("ALTER TABLE users ADD COLUMN email TEXT");
+            if (!names.includes('phone')) db.run("ALTER TABLE users ADD COLUMN phone TEXT");
+          });
 
-  // Ensure missing columns exist for older databases
-  db.all("PRAGMA table_info(users)", (err, columns) => {
-    const names = columns.map(c => c.name);
-    if (!names.includes('fullName')) db.run("ALTER TABLE users ADD COLUMN fullName TEXT");
-    if (!names.includes('email')) db.run("ALTER TABLE users ADD COLUMN email TEXT");
-    if (!names.includes('phone')) db.run("ALTER TABLE users ADD COLUMN phone TEXT");
+          // Ensure default admin exists
+          db.get("SELECT * FROM users WHERE username = ?", ["admin"], (err, row) => {
+            if (!row) {
+              const hash = bcrypt.hashSync("admin123", 10);
+              db.run("INSERT INTO users (username, password, fullName, email) VALUES (?, ?, ?, ?)", 
+                ["admin", hash, "Administrator", "admin@company.com"], (err) => {
+                    if (err) console.error("Error creating admin user:", err);
+                    else console.log("Default admin created: admin / admin123");
+                });
+            } else {
+                console.log("Admin user exists.");
+            }
+          });
+      }
   });
 
   db.run(`CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, data TEXT)`);
@@ -50,15 +67,6 @@ function initDb() {
   db.run(`CREATE TABLE IF NOT EXISTS quotes (id TEXT PRIMARY KEY, data TEXT)`);
   db.run(`CREATE TABLE IF NOT EXISTS contracts (id TEXT PRIMARY KEY, data TEXT)`);
   db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT)`);
-
-  // Default Admin
-  db.get("SELECT * FROM users WHERE username = ?", ["admin"], (err, row) => {
-    if (!row) {
-      const hash = bcrypt.hashSync("admin123", 10);
-      db.run("INSERT INTO users (username, password, fullName, email) VALUES (?, ?, ?, ?)", 
-        ["admin", hash, "Administrator", "admin@company.com"]);
-    }
-  });
 }
 
 export default db;

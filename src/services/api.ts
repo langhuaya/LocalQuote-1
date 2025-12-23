@@ -1,7 +1,8 @@
 
 import { Quote, Product, Customer, CompanySettings, User, Brand, Contract } from '../types';
 
-// 使用相对路径，让预览环境的代理自动处理端口转发，解决 Failed to fetch
+// 使用相对路径。开发环境下通过 vite.config.ts 的 proxy 转发到 3001
+// 生产环境下（Express 托管）会自动指向同一个域名的 /api
 const API_URL = '/api';
 
 const getHeaders = () => {
@@ -16,9 +17,10 @@ export const api = {
         headers: {'Content-Type': 'application/json'}, 
         body: JSON.stringify({username, password}) 
     });
+    
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Login failed with status ${res.status}`);
+        throw new Error(errorData.error || `Login failed (Status: ${res.status})`);
     }
     return res.json();
   },
