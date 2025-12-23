@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const SECRET_KEY = 'swift-quote-pro-secret-key';
+const SECRET_KEY = 'swift-quote-pro-secret-key-2025';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -37,23 +37,38 @@ const authenticateToken = (req, res, next) => {
 // --- Auth Routes ---
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: "Missing credentials" });
+  if (!username || !password) {
+    return res.status(400).json({ error: "Username and password are required" });
+  }
 
   db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
-    if (err) return res.status(500).json({ error: "Database error" });
-    if (!user) return res.status(401).json({ error: "Invalid username or password" });
+    if (err) {
+      console.error("Login DB Error:", err);
+      return res.status(500).json({ error: "Database error during login" });
+    }
+    
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
 
-    const isValid = bcrypt.compareSync(password, user.password);
-    if (!isValid) return res.status(401).json({ error: "Invalid username or password" });
+    try {
+      const isValid = bcrypt.compareSync(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid password" });
+      }
 
-    const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '24h' });
-    res.json({ 
-      token, 
-      username: user.username, 
-      fullName: user.fullName, 
-      email: user.email, 
-      phone: user.phone 
-    });
+      const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '24h' });
+      return res.json({ 
+        token, 
+        username: user.username, 
+        fullName: user.fullName || user.username, 
+        email: user.email || '', 
+        phone: user.phone || '' 
+      });
+    } catch (bcryptErr) {
+      console.error("Bcrypt Error:", bcryptErr);
+      return res.status(500).json({ error: "Authentication engine error" });
+    }
   });
 });
 
@@ -71,7 +86,7 @@ app.post('/api/users', authenticateToken, (req, res) => {
   db.run("INSERT INTO users (username, password, fullName, email, phone) VALUES (?, ?, ?, ?, ?)", 
     [username, hash, fullName || '', email || '', phone || ''], 
     function(err) {
-      if (err) return res.status(500).json({ error: "User already exists" });
+      if (err) return res.status(500).json({ error: "User already exists or DB error" });
       res.json({ id: this.lastID, username, fullName, email, phone });
     }
   );

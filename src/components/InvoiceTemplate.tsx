@@ -66,7 +66,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                     <div className="inline-block text-left bg-slate-50 p-4 border-l-4 border-blue-600">
                         <div className="grid grid-cols-[80px_1fr] gap-y-1 text-sm">
                             <span className="text-slate-400 font-bold">Ref No.</span>
-                            <span className="font-black text-slate-900">{quote.number}</span>
+                            <span className="font-black text-slate-900 break-all">{quote.number}</span>
                             <span className="text-slate-400 font-bold">Date</span>
                             <span className="text-slate-900">{quote.date}</span>
                             <span className="text-slate-400 font-bold">Expiry</span>
@@ -80,9 +80,9 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             <div className="mb-10 no-split">
                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b-2 border-slate-100 pb-1">Bill To</h3>
                  <div className="flex justify-between">
-                    <div>
-                        <h2 className="text-xl font-black text-slate-900">{customer.name}</h2>
-                        <p className="text-sm text-slate-500 max-w-sm">{customer.address}</p>
+                    <div className="max-w-[60%]">
+                        <h2 className="text-xl font-black text-slate-900 leading-tight">{customer.name}</h2>
+                        <p className="text-sm text-slate-500 mt-1">{customer.address}</p>
                     </div>
                     <div className="text-right text-sm">
                         <p><span className="text-slate-400 font-bold">Attn:</span> <span className="font-bold">{customer.contactPerson}</span></p>
@@ -92,7 +92,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                  </div>
             </div>
 
-            {/* Product Table - STRICT LAYOUT */}
+            {/* Product Table - EXTREME LOCKDOWN LAYOUT */}
             <div className="mb-8 flex-grow overflow-visible">
                 <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
                     <thead>
@@ -108,7 +108,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                     </thead>
                     <tbody className="text-sm">
                         {items.map((item, idx) => (
-                            <tr key={item.id} className="border-b border-slate-200 no-split hover:bg-slate-50/50">
+                            <tr key={item.id} className="border-b border-slate-200 no-split">
                                 {showImages && (
                                     <td className="py-3 px-2 align-middle">
                                         {item.imageDataUrl ? (
@@ -117,10 +117,10 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                                     </td>
                                 )}
                                 <td className="py-3 px-2 align-top">
-                                    <p className="font-black text-slate-900 mb-1">{item.sku}</p>
-                                    <p className="text-slate-500 text-xs leading-tight">{item.name}</p>
+                                    <p className="font-black text-slate-900 mb-1 leading-tight overflow-wrap-anywhere break-all">{item.sku}</p>
+                                    <p className="text-slate-500 text-xs leading-snug">{item.name}</p>
                                 </td>
-                                <td className="py-3 px-2 align-top text-center text-xs font-medium text-slate-600">{item.brand || '—'}</td>
+                                <td className="py-3 px-2 align-top text-center text-xs font-medium text-slate-600 break-words">{item.brand || '—'}</td>
                                 <td className="py-3 px-2 align-top text-center text-[10px] text-slate-500">{item.leadTime || 'in stock'}</td>
                                 <td className="py-3 px-2 align-top text-center">
                                     <span className="font-bold text-slate-900">{item.quantity}</span>
@@ -138,7 +138,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             <div className="flex justify-between items-start no-split pt-6 border-t-2 border-slate-100">
                 <div className="w-[55%]">
                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Payment Details</h4>
-                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-[11px] text-slate-600 font-mono whitespace-pre-wrap leading-normal">
+                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-[11px] text-slate-600 font-mono whitespace-pre-wrap leading-normal overflow-hidden">
                         {settings.bankInfo}
                      </div>
                      <div className="mt-4 text-[10px] text-slate-400 space-y-1 uppercase font-bold">
@@ -184,6 +184,12 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             <p className="text-center mt-8 text-[9px] text-slate-300 font-bold uppercase tracking-[0.3em]">Thank you for your business</p>
           </div>
        </div>
+       <style dangerouslySetInnerHTML={{ __html: `
+         .overflow-wrap-anywhere {
+            overflow-wrap: anywhere;
+            word-break: break-all;
+         }
+       `}} />
     </div>
   );
 });

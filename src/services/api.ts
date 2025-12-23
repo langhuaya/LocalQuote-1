@@ -11,7 +11,19 @@ const getHeaders = () => {
 };
 
 export const api = {
-  login: async (username, password) => (await fetch(`${API_URL}/login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username, password}) })).json(),
+  login: async (username, password) => {
+    const res = await fetch(`${API_URL}/login`, { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({username, password}) 
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Login failed with status ${res.status}`);
+    }
+    return res.json();
+  },
+  
   getUsers: async () => (await fetch(`${API_URL}/users`, { headers: getHeaders() })).json(),
   createUser: async (user) => (await fetch(`${API_URL}/users`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(user) })).json(),
   deleteUser: async (id) => fetch(`${API_URL}/users/${id}`, { method: 'DELETE', headers: getHeaders() }),
@@ -32,7 +44,6 @@ export const api = {
   saveQuote: async (q) => fetch(`${API_URL}/quotes`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(q) }),
   deleteQuote: async (id) => fetch(`${API_URL}/quotes/${id}`, { method: 'DELETE', headers: getHeaders() }),
 
-  // New Contract Methods
   getContracts: async (): Promise<Contract[]> => (await fetch(`${API_URL}/contracts`, { headers: getHeaders() })).json(),
   saveContract: async (c: Contract) => fetch(`${API_URL}/contracts`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(c) }),
   deleteContract: async (id: string) => fetch(`${API_URL}/contracts/${id}`, { method: 'DELETE', headers: getHeaders() }),
@@ -43,7 +54,6 @@ export const api = {
   },
   saveSettings: async (s) => fetch(`${API_URL}/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(s) }),
 
-  // AI Chat
   chatWithAi: async (messages: any[]) => (await fetch(`${API_URL}/ai/chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ messages }) })).json(),
 };
 export const generateId = () => Math.random().toString(36).substring(2, 9);
