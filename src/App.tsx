@@ -14,8 +14,8 @@ import { Login } from './components/Login';
 import { UsersManager } from './components/UsersManager';
 import { ProductsManager } from './components/ProductsManager';
 import { BrandsManager } from './components/BrandsManager';
-import { SettingsManager } from './components/SettingsManager'; // Added explicit import
-import { AiAssistant } from './components/AiAssistant'; // Added AI Assistant
+import { SettingsManager } from './components/SettingsManager';
+import { AiAssistant } from './components/AiAssistant';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -45,7 +45,6 @@ const TRANSLATIONS = {
     contact: 'Contact Person',
     contractTerms: 'Contract Terms',
     domesticInfo: 'Domestic Company Info',
-    // Common Actions
     add: 'Add',
     new: 'New',
     edit: 'Edit',
@@ -61,7 +60,6 @@ const TRANSLATIONS = {
     exportExcel: 'Export Excel',
     importSuccess: 'Import Successful',
     processing: 'Processing...',
-    // Products
     sku: 'SKU / Model',
     name: 'Name',
     brand: 'Brand',
@@ -92,11 +90,9 @@ const TRANSLATIONS = {
     bulkFormat: 'Format: Model, Price, Name (Optional)',
     bulkPlaceholder: 'e.g.\nFluke 179, 300\nFluke 87V, 450, Digital Multimeter',
     bulkBrandSelect: 'Select Brand for all items',
-    // Brands
     addBrand: 'Add Brand',
     description: 'Description',
     suppliersCount: 'Channels Count',
-    // Quotes/Contracts
     number: 'Number',
     date: 'Date',
     amount: 'Amount',
@@ -126,7 +122,6 @@ const TRANSLATIONS = {
     noData: 'No data available',
     createdTime: 'Created Time',
     createdUser: 'Created By',
-    // Dashboard
     totalRevenue: 'Est. Revenue',
     pendingQuotes: 'Pending Quotes',
     recentActivity: 'Recent Activity',
@@ -159,7 +154,6 @@ const TRANSLATIONS = {
     contact: '联系人',
     contractTerms: '合同条款模板',
     domesticInfo: '国内主体信息',
-    // Common Actions
     add: '添加',
     new: '新建',
     edit: '编辑',
@@ -175,7 +169,6 @@ const TRANSLATIONS = {
     exportExcel: '导出 Excel',
     importSuccess: '导入成功',
     processing: '处理中...',
-    // Products
     sku: 'SKU / 型号',
     name: '产品名称',
     brand: '品牌',
@@ -206,11 +199,9 @@ const TRANSLATIONS = {
     bulkFormat: '格式：型号, 价格, 产品名称[可选]',
     bulkPlaceholder: '例如：\nFluke 179, 300\nFluke 87V, 450, 数字万用表',
     bulkBrandSelect: '选择品牌 (所有产品)',
-    // Brands
     addBrand: '添加品牌',
     description: '描述/备注',
     suppliersCount: '渠道数量',
-    // Quotes/Contracts
     number: '编号',
     date: '日期',
     amount: '金额',
@@ -240,7 +231,6 @@ const TRANSLATIONS = {
     noData: '暂无数据',
     createdTime: '创建时间',
     createdUser: '创建人',
-    // Dashboard
     totalRevenue: '合同总额',
     pendingQuotes: '报价单数量',
     recentActivity: '最近动态',
@@ -313,7 +303,7 @@ export default function App() {
                   ...defaultSettings.domestic,
                   ...(s.domestic || {})
               },
-              ai: { // Merge AI settings
+              ai: {
                   ...defaultSettings.ai,
                   ...(s.ai || {})
               }
@@ -371,20 +361,16 @@ export default function App() {
     }
   };
 
-  // --- Generic Actions (OPTIMIZED) ---
-  
-  // Product Save: Update Local State to avoid 10MB re-download
   const handleProductSave = async (p: Product) => { 
       await api.saveProduct(p);
       setProducts(prev => {
           const exists = prev.find(item => item.id === p.id);
-          // Manually add current date for visual feedback if new
           const now = new Date().toISOString().split('T')[0];
           const productWithMeta = { 
               ...p, 
               updatedAt: now, 
               createdAt: exists ? exists.createdAt : now,
-              createdBy: exists ? exists.createdBy : p.createdBy // Preserve creator
+              createdBy: exists ? exists.createdBy : p.createdBy
           };
           
           if (exists) {
@@ -403,7 +389,7 @@ export default function App() {
 
   const handleCustomerSave = async (c: Customer) => { 
       await api.saveCustomer(c);
-      const newCustomers = await api.getCustomers(); // Customers are small, safe to refetch
+      const newCustomers = await api.getCustomers();
       setCustomers(newCustomers);
   };
   
@@ -433,7 +419,7 @@ export default function App() {
       alert(t('save') + ' Success!'); 
   };
 
-  // --- Export Logic ---
+  // --- Improved Export Logic ---
   const handleExport = async (
       doc: Quote | Contract, 
       format: 'pdf' | 'image', 
@@ -448,12 +434,25 @@ export default function App() {
     if (type === 'quote') setPrintQuote(doc as Quote);
     else setPrintContract(doc as Contract);
 
+    // Increase delay slightly to ensure high-res images are loaded
     setTimeout(async () => {
         const ref = type === 'quote' ? printQuoteRef.current : printContractRef.current;
         if (ref) {
             try {
-                const scale = format === 'pdf' ? 4 : 3;
-                const canvas = await html2canvas(ref, { scale, useCORS: true, logging: false, windowWidth: 794, backgroundColor: '#ffffff' });
+                // Higher scale for better quality PDF
+                const scale = format === 'pdf' ? 3 : 3;
+                const canvas = await html2canvas(ref, { 
+                  scale, 
+                  useCORS: true, 
+                  logging: false, 
+                  windowWidth: 794, 
+                  backgroundColor: '#ffffff',
+                  onclone: (clonedDoc) => {
+                    // Force display if it was hidden
+                    const el = clonedDoc.querySelector('[ref]') as HTMLElement;
+                    if (el) el.style.display = 'block';
+                  }
+                });
 
                 if (format === 'image') {
                     canvas.toBlob((blob) => {
@@ -469,23 +468,33 @@ export default function App() {
                         }
                     }, 'image/png');
                 } else {
-                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const imgData = canvas.toDataURL('image/jpeg', 0.98);
                     const pdf = new jsPDF('p', 'mm', 'a4');
                     const pdfWidth = 210; 
                     const pdfHeight = 297; 
-                    const imgProps = pdf.getImageProperties(imgData);
-                    const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                    let heightLeft = imgHeight;
+                    
+                    // Improved pagination logic for smooth multi-page support
+                    const imgWidthInPdf = pdfWidth;
+                    const imgHeightInPdf = (canvas.height * pdfWidth) / canvas.width;
+                    
+                    let heightRemaining = imgHeightInPdf;
                     let position = 0;
+                    let pageCount = 0;
 
-                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
-                    heightLeft -= pdfHeight;
-                    while (heightLeft >= 1) {
-                        position = heightLeft - imgHeight;
+                    // Add first page
+                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidthInPdf, imgHeightInPdf, undefined, 'FAST');
+                    heightRemaining -= pdfHeight;
+                    pageCount++;
+
+                    // Add subsequent pages if content overflows
+                    while (heightRemaining > 0) {
+                        position = -(pageCount * pdfHeight);
                         pdf.addPage();
-                        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
-                        heightLeft -= pdfHeight;
+                        pdf.addImage(imgData, 'JPEG', 0, position, imgWidthInPdf, imgHeightInPdf, undefined, 'FAST');
+                        heightRemaining -= pdfHeight;
+                        pageCount++;
                     }
+
                     pdf.save(`${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.pdf`);
                 }
             } catch (err) {
@@ -497,7 +506,7 @@ export default function App() {
                 setIsGeneratingPdf(false);
             }
         }
-    }, 1500);
+    }, 2000);
   };
 
   const navigateTo = (view: ViewState) => { setCurrentView(view); setIsMobileMenuOpen(false); };
@@ -546,9 +555,10 @@ export default function App() {
     <>
       <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
         {isGeneratingPdf && (
-            <div className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex flex-col items-center justify-center text-white">
-                <Loader2 className="animate-spin w-12 h-12 mb-4" />
-                <p className="text-lg font-semibold">{t('generating')}</p>
+            <div className="fixed inset-0 bg-black bg-opacity-70 z-[9999] flex flex-col items-center justify-center text-white backdrop-blur-sm">
+                <Loader2 className="animate-spin w-16 h-16 mb-4 text-blue-400" />
+                <p className="text-xl font-bold tracking-widest">{t('generating')}</p>
+                <p className="text-sm text-gray-300 mt-2">Preparing high-resolution document...</p>
             </div>
         )}
 
@@ -584,7 +594,6 @@ export default function App() {
            </header>
            <div className="flex-1 overflow-auto p-4 md:p-8">{renderContent()}</div>
            
-           {/* AI Assistant Mounted Globally */}
            <AiAssistant 
               productsCount={products.length}
               customersCount={customers.length}
@@ -596,12 +605,12 @@ export default function App() {
       </div>
 
       {printQuote && (
-          <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1 }}>
+          <div style={{ position: 'fixed', top: 0, left: '-20000px', width: '794px', height: 'auto', zIndex: -100, pointerEvents: 'none' }}>
               <InvoiceTemplate ref={printQuoteRef} quote={printQuote} settings={settings} mode="generate" showImages={printOptions.showImages} />
           </div>
       )}
       {printContract && (
-          <div style={{ position: 'fixed', top: 0, left: '-10000px', width: '794px', height: 'auto', zIndex: -1 }}>
+          <div style={{ position: 'fixed', top: 0, left: '-20000px', width: '794px', height: 'auto', zIndex: -100, pointerEvents: 'none' }}>
               <ContractTemplate ref={printContractRef} contract={printContract} settings={settings.domestic} mode="generate" />
           </div>
       )}
@@ -616,19 +625,16 @@ const SidebarItem = ({ icon, label, active, onClick }: any) => (
 );
 
 const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuote, onNewContract, onViewQuotes, onViewContracts, t }: any) => {
-    // Greeting Logic
     const hour = new Date().getHours();
     const greeting = hour < 12 ? t('goodMorning') : hour < 18 ? t('goodAfternoon') : t('goodEvening');
     const username = localStorage.getItem('user_fullName') || localStorage.getItem('username') || 'User';
 
-    // Stats
     const totalContractValue = contracts.reduce((acc: number, c: Contract) => acc + (c.totalAmount || 0), 0);
     const recentQuotes = quotes.slice(0, 5);
     const recentContracts = contracts.slice(0, 5);
 
     return (
         <div className="space-y-6">
-            {/* Welcome Banner */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-8 text-white shadow-lg flex justify-between items-center">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">{greeting}, {username}!</h1>
@@ -639,7 +645,6 @@ const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuot
                 </div>
             </div>
 
-            {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard 
                     title={t('pendingQuotes')} 
@@ -671,11 +676,8 @@ const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuot
                 />
             </div>
 
-            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Recent Activity */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Recent Quotes */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-gray-800 flex items-center"><Clock size={16} className="mr-2 text-gray-400"/> {t('recentActivity')} - {t('quotes')}</h3>
@@ -703,7 +705,6 @@ const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuot
                         </div>
                     </div>
 
-                    {/* Recent Contracts */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h3 className="font-bold text-gray-800 flex items-center"><FileSignature size={16} className="mr-2 text-gray-400"/> {t('recentActivity')} - {t('contracts')}</h3>
@@ -727,9 +728,7 @@ const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuot
                     </div>
                 </div>
 
-                {/* Right Column: Quick Actions & Info */}
                 <div className="space-y-6">
-                    {/* Quick Actions */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                          <h3 className="font-bold text-gray-800 mb-4">{t('quickActions')}</h3>
                          <div className="space-y-3">
@@ -750,7 +749,6 @@ const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuot
                          </div>
                     </div>
 
-                    {/* Exchange Rates Widget */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <div className="p-4 border-b bg-gray-50">
                              <h3 className="font-bold text-gray-800 text-sm">{t('exchangeRates')}</h3>
@@ -912,7 +910,6 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
     const [regionFilter, setRegionFilter] = useState<CustomerRegion | 'All'>('All');
 
     const handleEdit = (c: Customer) => { setCurrent(c); setIsEditing(true); };
-    // Updated: Default to International
     const handleNew = () => { setCurrent({ id: generateId(), region: 'International' }); setIsEditing(true); }; 
 
     const filtered = customers.filter((c: Customer) => 
@@ -932,7 +929,6 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                  <div className="bg-white p-6 rounded-xl shadow border">
                      <h3 className="font-bold text-lg mb-4">{current.id ? t('edit') : t('new')} {t('customers')}</h3>
                      <form onSubmit={handleSubmit} className="space-y-4">
-                         {/* Region Switcher - Swapped Order */}
                          <div className="flex space-x-4 mb-4">
                              <label className="flex items-center space-x-2 cursor-pointer">
                                  <input type="radio" name="region" checked={current.region === 'International'} onChange={() => setCurrent({...current, region: 'International'})} />
@@ -966,7 +962,6 @@ const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
                                 <input className="w-full p-2 border rounded" value={current.address || ''} onChange={e => setCurrent({...current, address: e.target.value})} />
                             </div>
                             
-                            {/* Conditional Fields */}
                             {current.region === 'Domestic' ? (
                                 <>
                                     <div>

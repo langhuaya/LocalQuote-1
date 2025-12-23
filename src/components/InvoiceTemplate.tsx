@@ -39,7 +39,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
       height: 'auto', 
       overflow: 'visible'
     };
-    wrapperClass = "absolute top-0 left-0";
+    wrapperClass = "absolute top-0 left-[-9999px]"; // Move far off-screen instead of just absolute
   } else {
     containerStyle = { ...baseStyle, display: 'none' };
   }
@@ -71,7 +71,6 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                         <p>{settings.address}</p>
                         <p>{settings.city}, {settings.country}</p>
                         <div className="mt-3 space-y-0.5">
-                             {/* Salesperson Priority */}
                              {quote.salesperson?.name ? (
                                <>
                                    <p><span className="font-bold text-slate-700">Rep:</span> {quote.salesperson.name}</p>
@@ -132,7 +131,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             <div className="mb-8 flex-grow">
                 <table className="w-full border-collapse">
                     <thead>
-                        <tr className="border-b border-slate-300">
+                        <tr className="border-b-2 border-slate-300">
                             {showImages && (
                                 <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[8%]">Image</th>
                             )}
@@ -146,7 +145,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                     </thead>
                     <tbody className="text-sm">
                         {items.map((item, idx) => (
-                            <tr key={item.id} className="border-b border-slate-100 last:border-0 group">
+                            <tr key={item.id} className="border-b border-slate-100 last:border-0 group break-inside-avoid">
                                 {showImages && (
                                     <td className="py-4 align-top">
                                         {item.imageDataUrl ? (
@@ -174,11 +173,12 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             </div>
 
             {/* --- TOTALS & BANK INFO --- */}
-            <div className="flex justify-between items-start mb-8 break-inside-avoid">
+            {/* Added break-inside-avoid to prevent this section from being sliced in half */}
+            <div className="flex justify-between items-start mb-8 break-inside-avoid pt-6 border-t border-slate-200">
                 {/* Bank Info / Left Side */}
                 <div className="w-[55%] pr-8">
                      <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Payment Details</h4>
-                     <div className="bg-slate-50 p-3 rounded text-xs text-slate-600 leading-snug border border-slate-100 font-mono">
+                     <div className="bg-slate-50 p-4 rounded-lg text-xs text-slate-600 leading-snug border border-slate-100 font-mono">
                          <div className="whitespace-pre-wrap">{settings.bankInfo}</div>
                      </div>
 
@@ -221,35 +221,32 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             </div>
 
             {/* --- FOOTER / SIGNATURE --- */}
-            <div className="mt-auto break-inside-avoid">
+            <div className="mt-auto break-inside-avoid border-t border-slate-100 pt-8">
                 <div className="grid grid-cols-2 gap-12">
-                     <div className="text-center pt-8">
-                         <div className="border-b border-slate-300 h-12 mb-2"></div>
-                         <p className="text-xs font-bold text-slate-400 uppercase">Confirmed & Accepted By (Buyer)</p>
+                     <div className="text-center">
+                         <div className="border-b border-slate-300 h-16 mb-2"></div>
+                         <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">Confirmed & Accepted By (Buyer)</p>
                      </div>
                      
-                     {/* Seller Signature - Re-centered logic */}
+                     {/* Seller Signature */}
                      <div className="text-center flex flex-col items-center">
-                         {/* Stamp Container: Relative to allow stacking */}
                          <div className="h-32 w-full relative flex flex-col items-center justify-end pb-2">
-                             {/* Stamp Image: Absolute centered horizontally, adjusted bottom to overlap text slightly */}
                              {settings.stampDataUrl && (
                                  <img 
                                     src={settings.stampDataUrl} 
                                     alt="Stamp"
-                                    className="absolute bottom-6 left-1/2 -translate-x-1/2 w-36 h-36 object-contain mix-blend-multiply opacity-90 pointer-events-none"
+                                    className="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 h-40 object-contain mix-blend-multiply opacity-95 pointer-events-none"
                                     crossOrigin="anonymous"
                                  />
                              )}
-                             {/* Company Name: Z-index higher to show text, but blend mode helps. */}
                              <span className="font-serif font-bold text-lg text-slate-800 relative z-10">{settings.name}</span>
                          </div>
                          <div className="border-b border-slate-300 w-full mb-2"></div>
-                         <p className="text-xs font-bold text-slate-400 uppercase">Authorized Signature (Seller)</p>
+                         <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">Authorized Signature (Seller)</p>
                      </div>
                 </div>
                 
-                <div className="text-center mt-8 text-[10px] text-slate-400 uppercase tracking-widest">
+                <div className="text-center mt-12 text-[10px] text-slate-400 uppercase tracking-widest">
                     Thank you for your business
                 </div>
             </div>
