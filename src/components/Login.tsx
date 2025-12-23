@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { api } from '../services/api';
+import { api } from '../services/api'; // strict relative import
 import { Lock, User } from 'lucide-react';
 
 interface LoginProps {
@@ -19,18 +18,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     try {
       const data = await api.login(username, password);
-      if (data && data.token) {
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('username', data.username);
-          if (data.fullName) localStorage.setItem('user_fullName', data.fullName);
-          if (data.email) localStorage.setItem('user_email', data.email);
-          if (data.phone) localStorage.setItem('user_phone', data.phone);
-          onLoginSuccess();
-      } else {
-          throw new Error("Invalid response from server");
-      }
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('username', data.username);
+      // Store extended profile info
+      if (data.fullName) localStorage.setItem('user_fullName', data.fullName);
+      if (data.email) localStorage.setItem('user_email', data.email);
+      if (data.phone) localStorage.setItem('user_phone', data.phone);
+      
+      onLoginSuccess();
+    } catch (err) {
+      setError('Invalid username or password');
     } finally {
       setLoading(false);
     }
@@ -44,23 +41,23 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <span className="text-white text-3xl font-bold">L</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-800">Welcome Back</h1>
-          <p className="text-gray-500 text-sm">Sign in with admin / admin123</p>
+          <p className="text-gray-500">Sign in to SwiftQuote Pro</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-xs mb-4 text-center font-bold border border-red-100">
+          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4 text-center">
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Username</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Username</label>
             <div className="relative">
-              <User className="absolute left-3 top-3 text-gray-400" size={18} />
+              <User className="absolute left-3 top-3 text-gray-400" size={20} />
               <input 
                 type="text" 
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
@@ -70,12 +67,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Password</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+              <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
               <input 
                 type="password" 
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
@@ -87,9 +84,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all disabled:opacity-50 active:scale-[0.98]"
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700 transition disabled:opacity-50"
           >
-            {loading ? 'Authenticating...' : 'Sign In Now'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>
