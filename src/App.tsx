@@ -419,7 +419,7 @@ export default function App() {
       alert(t('save') + ' Success!'); 
   };
 
-  // --- High-Fidelity Export Logic ---
+  // --- High-Quality Export Logic (Fixed Slicing) ---
   const handleExport = async (
       doc: Quote | Contract, 
       format: 'pdf' | 'image', 
@@ -439,12 +439,18 @@ export default function App() {
         const ref = type === 'quote' ? printQuoteRef.current : printContractRef.current;
         if (ref) {
             try {
+                // FIXED: Force standard A4 capture width (794px) and high scale
+                // This ensures we capture the "Desktop" layout regardless of current browser view
+                const canvas = await html2canvas(ref, { 
+                    scale: 2, 
+                    useCORS: true, 
+                    backgroundColor: '#ffffff',
+                    width: 794,
+                    windowWidth: 794, // Critical for avoiding "mobile squashed" look
+                    logging: false
+                });
+
                 if (format === 'image') {
-                    const canvas = await html2canvas(ref, { 
-                      scale: 3, 
-                      useCORS: true, 
-                      backgroundColor: '#ffffff'
-                    });
                     canvas.toBlob((blob) => {
                         if (blob) {
                             const url = URL.createObjectURL(blob);
@@ -456,32 +462,37 @@ export default function App() {
                         }
                     }, 'image/png');
                 } else {
-                    // Use jsPDF .html() method for professional multi-page support
-                    // This method respects 'break-inside: avoid'
-                    const pdf = new jsPDF({
-                        orientation: 'p',
-                        unit: 'mm',
-                        format: 'a4',
-                        compress: true
-                    });
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdfWidth = 210; 
+                    const pdfHeight = 297; 
+                    
+                    // Standard proportions: Height = Width * 1.414
+                    const imgWidth = canvas.width;
+                    const imgHeight = canvas.height;
+                    
+                    // In PDF units
+                    const renderedImgHeight = (imgHeight * pdfWidth) / imgWidth;
+                    
+                    let heightLeft = renderedImgHeight;
+                    let position = 0;
+                    let pageCount = 0;
 
-                    // Configuration for the html capture
-                    // Note: We need to scale properly to fit A4 (210mm width)
-                    await pdf.html(ref, {
-                        callback: function (docOutput) {
-                            docOutput.save(`${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.pdf`);
-                        },
-                        x: 0,
-                        y: 0,
-                        width: 210, // Target A4 width in mm
-                        windowWidth: 794, // Matches our baseStyle width
-                        autoPaging: 'text', // Avoid cutting lines of text
-                        html2canvas: {
-                            scale: 1, // Let jsPDF handle the scaling via width/windowWidth ratio
-                            useCORS: true,
-                            logging: false,
-                        }
-                    });
+                    // Add first page
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, renderedImgHeight, undefined, 'FAST');
+                    heightLeft -= pdfHeight;
+                    pageCount++;
+
+                    // Add extra pages if content overflows
+                    while (heightLeft > 0) {
+                        position = -(pageCount * pdfHeight);
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, renderedImgHeight, undefined, 'FAST');
+                        heightLeft -= pdfHeight;
+                        pageCount++;
+                    }
+
+                    pdf.save(`${type === 'quote' ? (doc as Quote).number : (doc as Contract).contractNumber}.pdf`);
                 }
             } catch (err) {
                 console.error("Export failed", err);
@@ -492,7 +503,7 @@ export default function App() {
                 setIsGeneratingPdf(false);
             }
         }
-    }, 1500);
+    }, 1200);
   };
 
   const navigateTo = (view: ViewState) => { setCurrentView(view); setIsMobileMenuOpen(false); };
@@ -544,7 +555,7 @@ export default function App() {
             <div className="fixed inset-0 bg-black bg-opacity-70 z-[9999] flex flex-col items-center justify-center text-white backdrop-blur-sm">
                 <Loader2 className="animate-spin w-16 h-16 mb-4 text-blue-400" />
                 <p className="text-xl font-bold tracking-widest">{t('generating')}</p>
-                <p className="text-sm text-gray-300 mt-2">Perfecting document layout...</p>
+                <p className="text-sm text-gray-300 mt-2">Finalizing professional document layout...</p>
             </div>
         )}
 
@@ -759,8 +770,6 @@ const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuot
         </div>
     );
 };
-
-// --- Missing Sub-Components Fixes ---
 
 const StatCard = ({ title, value, icon, bg, sub }: any) => (
     <div className={`${bg} p-6 rounded-xl border border-gray-100 shadow-sm flex items-start justify-between`}>
