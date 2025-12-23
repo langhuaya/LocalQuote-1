@@ -1,7 +1,4 @@
-
 import { Quote, Product, Customer, CompanySettings, User, Brand, Contract } from '../types';
-// Import GoogleGenAI from @google/genai as per guidelines
-import { GoogleGenAI } from "@google/genai";
 
 const API_URL = import.meta.env.PROD 
   ? '/api' 
@@ -44,46 +41,5 @@ export const api = {
       return res.ok ? res.json() : null;
   },
   saveSettings: async (s) => fetch(`${API_URL}/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(s) }),
-
-  // Fix: Added chatWithAi method to handle requests from AiAssistant using Google Gemini API.
-  chatWithAi: async (messages: any[]) => {
-    try {
-      // Use named parameter for apiKey as required by the latest SDK.
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // Separate system instruction from the chat history.
-      const systemMessage = messages.find(m => m.role === 'system');
-      const chatMessages = messages.filter(m => m.role !== 'system');
-      
-      // Map standard roles (user/assistant) to Gemini roles (user/model).
-      const contents = chatMessages.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
-
-      // Query Gemini 3 Pro for advanced reasoning and data extraction tasks.
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents,
-        config: {
-          systemInstruction: systemMessage?.content,
-        },
-      });
-
-      // Extract generated text using the .text property (not a method).
-      return {
-        choices: [
-          {
-            message: {
-              content: response.text
-            }
-          }
-        ]
-      };
-    } catch (error: any) {
-      console.error('Gemini AI API Error:', error);
-      return { error: error.message || 'Failed to generate AI response' };
-    }
-  }
 };
 export const generateId = () => Math.random().toString(36).substring(2, 9);
