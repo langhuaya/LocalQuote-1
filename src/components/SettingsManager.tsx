@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { CompanySettings } from '../types';
-import { Coins, Bot } from 'lucide-react';
+import { Coins } from 'lucide-react';
 
 interface SettingsManagerProps {
   settings: CompanySettings;
@@ -17,29 +17,17 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSa
              name: '', address: '', contact: '', phone: '', fax: '',
              taxId: '', bankName: '', bankAccount: '', stampDataUrl: '',
              contractTerms: '', contractPrefix: 'ULHTZH'
-        },
-        ai: settings.ai || {
-            apiKey: '',
-            baseUrl: 'https://yunwu.ai/v1',
-            model: 'gpt-3.5-turbo'
         }
     };
 
     const [data, setData] = useState<CompanySettings>(safeSettings);
-    const [tab, setTab] = useState<'intl' | 'domestic' | 'ai'>('intl');
+    const [tab, setTab] = useState<'intl' | 'domestic'>('intl');
 
     const handleChange = (field: string, val: string) => setData({...data, [field]: val});
     
     // Nested update for domestic
     const handleDomesticChange = (field: keyof typeof data.domestic, val: string) => {
         setData({ ...data, domestic: { ...data.domestic, [field]: val }});
-    };
-    
-    // Nested update for AI
-    const handleAiChange = (field: keyof typeof safeSettings.ai, val: string) => {
-        if(data.ai) {
-             setData({ ...data, ai: { ...data.ai, [field]: val }});
-        }
     };
 
     const handleImage = (e: any, field: 'logoDataUrl' | 'stampDataUrl', isDomestic = false) => {
@@ -71,12 +59,6 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSa
                     onClick={() => setTab('domestic')}
                 >
                     {t('domesticInfo')} & {t('contractTerms')}
-                </button>
-                <button 
-                    className={`px-6 py-3 font-bold whitespace-nowrap flex items-center ${tab === 'ai' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}
-                    onClick={() => setTab('ai')}
-                >
-                    <Bot size={18} className="mr-2" /> AI Assistant
                 </button>
             </div>
 
@@ -181,53 +163,6 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSa
                             />
                         </div>
                     </div>
-                )}
-
-                {tab === 'ai' && (
-                     <div className="space-y-6">
-                         <h4 className="font-bold text-purple-600 flex items-center">
-                            <Bot size={24} className="mr-2"/> AI Assistant Configuration
-                         </h4>
-                         <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 text-sm text-purple-800 mb-6">
-                            Configure your AI provider here. The system supports OpenAI-compatible APIs (like Yunwu.ai, DeepSeek, etc.).
-                            <br/><strong>Note:</strong> Your API Key is stored securely in your local database and used by the server to proxy requests.
-                         </div>
-
-                         <div className="space-y-4">
-                             <div>
-                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">API Base URL</label>
-                                 <input 
-                                    className="w-full p-2 border rounded font-mono text-sm" 
-                                    value={data.ai?.baseUrl || ''} 
-                                    onChange={e => handleAiChange('baseUrl', e.target.value)}
-                                    placeholder="https://yunwu.ai/v1"
-                                 />
-                                 <p className="text-xs text-gray-400 mt-1">The endpoint URL (excluding /chat/completions).</p>
-                             </div>
-                             
-                             <div>
-                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">API Key</label>
-                                 <input 
-                                    type="password"
-                                    className="w-full p-2 border rounded font-mono text-sm" 
-                                    value={data.ai?.apiKey || ''} 
-                                    onChange={e => handleAiChange('apiKey', e.target.value)}
-                                    placeholder="sk-..."
-                                 />
-                             </div>
-
-                             <div>
-                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Model Name</label>
-                                 <input 
-                                    className="w-full p-2 border rounded font-mono text-sm" 
-                                    value={data.ai?.model || ''} 
-                                    onChange={e => handleAiChange('model', e.target.value)}
-                                    placeholder="gpt-3.5-turbo"
-                                 />
-                                 <p className="text-xs text-gray-400 mt-1">e.g. gpt-3.5-turbo, gpt-4, deepseek-chat</p>
-                             </div>
-                         </div>
-                     </div>
                 )}
 
                 <div className="mt-6 flex justify-end">

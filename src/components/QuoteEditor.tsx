@@ -17,8 +17,7 @@ interface QuoteEditorProps {
   t: (key: string) => string;
 }
 
-// ... ProductSearch and CustomerSearch Sub-components remain same as previous version but with stabilized IDs ...
-const ProductSearch = ({ products, value, onChange, currency }: any) => {
+const ProductSearch = ({ products, value, onChange }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [dropdownStyle, setDropdownStyle] = useState({});
@@ -135,7 +134,6 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [showImages, setShowImages] = useState(true);
 
-  // Draft key
   const DRAFT_KEY = `quote_draft_${initialQuote?.id || 'new'}`;
 
   useEffect(() => {
@@ -156,35 +154,48 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
       setDiscountRate(initialQuote.discountRate);
       setShipping(initialQuote.shipping || 0);
       setItems(initialQuote.items);
-      setSalesperson(initialQuote.salesperson || { name: localStorage.getItem('user_fullName') || '', email: localStorage.getItem('user_email') || '', phone: localStorage.getItem('user_phone') || '' });
+      setSalesperson(initialQuote.salesperson || { 
+          name: localStorage.getItem('user_fullName') || '', 
+          email: localStorage.getItem('user_email') || '', 
+          phone: localStorage.getItem('user_phone') || '' 
+      });
     } else {
       const now = new Date();
       const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
       setQuoteNumber(`${settings.quotePrefix}${dateStr}${Math.floor(Math.random()*1000).toString().padStart(3, '0')}`);
       setValidUntil(new Date(now.setMonth(now.getMonth()+1)).toISOString().split('T')[0]);
-      setSalesperson({ name: localStorage.getItem('user_fullName') || '', email: localStorage.getItem('user_email') || '', phone: localStorage.getItem('user_phone') || '' });
-      setItems([{ id: generateId(), productId: '', sku: '', name: '', description: '', unit: 'pcs', quantity: 1, price: 0, amount: 0, brand: '', leadTime: 'in stock' }]);
-    }
+      
+      // Auto-fill salesperson info from session
+      setSalesperson({ 
+          name: localStorage.getItem('user_fullName') || '', 
+          email: localStorage.getItem('user_email') || '', 
+          phone: localStorage.getItem('user_phone') || '' 
+      });
 
-    // Recover Draft if exists and confirm with user
-    if (savedDraft && !initialQuote) {
-        if (confirm("Found an unsaved draft. Do you want to restore it?")) {
-            const draft = JSON.parse(savedDraft);
-            setCustomerId(draft.customerId);
-            setItems(draft.items);
-            setNotes(draft.notes);
-            setDiscountRate(draft.discountRate);
-            setShipping(draft.shipping);
-        } else {
-            localStorage.removeItem(DRAFT_KEY);
-        }
+      if (savedDraft) {
+          if (confirm("Found an unsaved draft. Do you want to restore it?")) {
+              const draft = JSON.parse(savedDraft);
+              setCustomerId(draft.customerId);
+              setItems(draft.items);
+              setNotes(draft.notes);
+              setDiscountRate(draft.discountRate);
+              setShipping(draft.shipping);
+          } else {
+              localStorage.removeItem(DRAFT_KEY);
+              setItems([{ id: generateId(), productId: '', sku: '', name: '', description: '', unit: 'pcs', quantity: 1, price: 0, amount: 0, brand: '', leadTime: 'in stock' }]);
+          }
+      } else {
+          setItems([{ id: generateId(), productId: '', sku: '', name: '', description: '', unit: 'pcs', quantity: 1, price: 0, amount: 0, brand: '', leadTime: 'in stock' }]);
+      }
     }
   }, [initialQuote]);
 
   // Real-time Draft Saving
   useEffect(() => {
-    const draft = { customerId, items, notes, discountRate, shipping };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    if (items.length > 0 || customerId) {
+        const draft = { customerId, items, notes, discountRate, shipping };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    }
   }, [customerId, items, notes, discountRate, shipping]);
 
   const totals = useMemo(() => {
@@ -203,7 +214,14 @@ export const QuoteEditor: React.FC<QuoteEditorProps> = ({
         const updated = { ...item, [field]: value };
         if (field === 'productId') {
           const p = products.find(prod => prod.id === value);
-          if (p) { updated.sku = p.sku; updated.name = p.name; updated.price = p.price; updated.brand = p.brand; updated.imageDataUrl = p.imageDataUrl; }
+          if (p) { 
+              updated.sku = p.sku; 
+              updated.name = p.name; 
+              updated.price = p.price; 
+              updated.brand = p.brand; 
+              updated.imageDataUrl = p.imageDataUrl; 
+              updated.unit = p.unit || 'pcs';
+          }
         }
         updated.amount = updated.price * updated.quantity;
         return updated;

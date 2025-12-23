@@ -29,7 +29,8 @@ const TRANSLATIONS = {
     save: 'Save', cancel: 'Cancel', search: 'Search...', actions: 'Actions', exportPdf: 'Export PDF', exportImage: 'Export Image', preview: 'Preview', 
     newQuote: 'New Quote', new: 'New', edit: 'Edit', delete: 'Delete', 
     importExcel: 'Import Excel', exportExcel: 'Export Excel', importSuccess: 'Success', processing: 'Processing...',
-    createdTime: 'Created Time', createdUser: 'Created By', totalRevenue: 'Total Amount', pendingQuotes: 'Quotes Count', recentActivity: 'Recent Activity', quickActions: 'Quick Actions', exchangeRates: 'Exchange Rates', viewAll: 'View All'
+    createdTime: 'Created Time', createdUser: 'Created By', totalRevenue: 'Total Amount', pendingQuotes: 'Quotes Count', recentActivity: 'Recent Activity', quickActions: 'Quick Actions', exchangeRates: 'Exchange Rates', viewAll: 'View All',
+    selectCustomer: 'Select Customer', region: 'Region', contact: 'Contact', taxId: 'Tax ID', signDate: 'Sign Date', contractPlace: 'Sign Place', addItem: 'Add Item', buyer: 'Buyer', quoteDetails: 'Details', domesticInfo: 'Domestic Info', contractTerms: 'Contract Terms'
   },
   zh: {
     dashboard: '仪表盘', quotes: '出口报价单', contracts: '产品购销合同', products: '产品管理', customers: '客户管理', brands: '品牌管理', settings: '系统设置', users: '账号管理',
@@ -37,7 +38,8 @@ const TRANSLATIONS = {
     save: '保存', cancel: '取消', search: '搜索...', actions: '操作', exportPdf: '导出 PDF', exportImage: '导出图片', preview: '预览',
     newQuote: '新建报价单', new: '新建', edit: '编辑', delete: '删除', 
     importExcel: '导入 Excel', exportExcel: '导出 Excel', importSuccess: '导入成功', processing: '正在处理...',
-    createdTime: '创建时间', createdUser: '创建人', totalRevenue: '成交总额', pendingQuotes: '报价单数量', recentActivity: '最近动态', quickActions: '快捷操作', exchangeRates: '参考汇率', viewAll: '查看全部'
+    createdTime: '创建时间', createdUser: '创建人', totalRevenue: '成交总额', pendingQuotes: '报价单数量', recentActivity: '最近动态', quickActions: '快捷操作', exchangeRates: '参考汇率', viewAll: '查看全部',
+    selectCustomer: '选择客户', region: '地区', contact: '联系人', taxId: '税号', signDate: '签订日期', contractPlace: '签订地点', addItem: '添加产品', buyer: '需方信息', quoteDetails: '单据详情', domesticInfo: '国内供方信息', contractTerms: '购销合同条款'
   }
 };
 
@@ -60,7 +62,7 @@ export default function App() {
   const [printDoc, setPrintDoc] = useState<{data: any, type: 'quote'|'contract'}|null>(null);
   const [printOpts, setPrintOpts] = useState({ showImages: true });
 
-  const t = (key: keyof typeof TRANSLATIONS['en']) => TRANSLATIONS[lang][key] || key;
+  const t = (key: keyof typeof TRANSLATIONS['en']) => (TRANSLATIONS[lang] as any)[key] || key;
 
   const loadData = async () => {
     try {
@@ -77,20 +79,23 @@ export default function App() {
 
   const handleLogout = () => { localStorage.clear(); setIsAuthenticated(false); };
 
-  // --- Hybrid PDF Generation Engine (Fixes Table Slicing) ---
   const handleExport = async (doc: any, format: 'pdf'|'image', type: 'quote'|'contract', opts = { showImages: true }) => {
     if (isGeneratingPdf) return;
     setIsGeneratingPdf(true);
     setPrintOpts(opts);
     setPrintDoc({ data: doc, type });
 
-    // Wait for template rendering
     setTimeout(async () => {
       const el = printRef.current;
       if (!el) return;
       try {
         const canvas = await html2canvas(el, { 
-          scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 794, windowWidth: 794, logging: false 
+          scale: 2, 
+          useCORS: true, 
+          backgroundColor: '#ffffff', 
+          width: 794, 
+          windowWidth: 794, 
+          logging: false 
         });
         
         if (format === 'image') {
@@ -109,13 +114,11 @@ export default function App() {
           let heightLeft = pageHeight;
           let position = 0;
 
-          // Add First Page
           pdf.addImage(canvas, 'JPEG', 0, position, pdfWidth, pageHeight, undefined, 'FAST');
           heightLeft -= pdfHeight;
 
-          // Add subsequent pages with correct slicing offset
           while (heightLeft > 0) {
-            position = heightLeft - pageHeight; // Shift up
+            position = heightLeft - pageHeight; 
             pdf.addPage();
             pdf.addImage(canvas, 'JPEG', 0, position, pdfWidth, pageHeight, undefined, 'FAST');
             heightLeft -= pdfHeight;
@@ -126,7 +129,7 @@ export default function App() {
         setIsGeneratingPdf(false);
         setPrintDoc(null);
       }
-    }, 1500);
+    }, 2000);
   };
 
   const renderContent = () => {
@@ -180,14 +183,178 @@ export default function App() {
         <AiAssistant productsCount={products.length} customersCount={customers.length} quotesCount={quotes.length} onSaveProduct={async p => { await api.saveProduct(p); await loadData(); }} onSaveCustomer={async c => { await api.saveCustomer(c); await loadData(); }} />
       </main>
 
-      {/* Hidden Export Rendering Container */}
-      <div id="export-container" className="fixed top-[-10000px] left-[-10000px] pointer-events-none">
+      <div id="export-container" className="fixed top-[-20000px] left-[-20000px] pointer-events-none" style={{ width: '794px' }}>
         {printDoc?.type === 'quote' && <InvoiceTemplate ref={printRef} quote={printDoc.data} settings={settings} mode="generate" showImages={printOpts.showImages} />}
         {printDoc?.type === 'contract' && <ContractTemplate ref={printRef} contract={printDoc.data} settings={settings.domestic} mode="generate" />}
       </div>
     </div>
   );
 }
+
+// --- Internal Helper Components ---
+
+const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+      <h3 className="font-bold text-gray-800 flex items-center"><FileText size={20} className="mr-2 text-blue-600"/>{t('quotes')}</h3>
+      <button onClick={onNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-blue-700 transition font-bold text-sm">
+        <Plus size={18} className="mr-1" /> {t('new')}
+      </button>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm text-left">
+        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-black tracking-widest">
+          <tr>
+            <th className="p-4">Ref No.</th>
+            <th className="p-4">Customer</th>
+            <th className="p-4">Date</th>
+            <th className="p-4 text-right">Total</th>
+            <th className="p-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {quotes.map((q: any) => (
+            <tr key={q.id} className="hover:bg-gray-50 transition-colors">
+              <td className="p-4 font-bold text-blue-600">{q.number}</td>
+              <td className="p-4">{q.customerSnapshot?.name}</td>
+              <td className="p-4 text-gray-500">{q.date}</td>
+              <td className="p-4 text-right font-black">{q.currency} {q.total.toLocaleString()}</td>
+              <td className="p-4 text-right">
+                <div className="flex justify-end space-x-2">
+                  <button onClick={() => onExport(q, 'pdf')} className="p-2 text-gray-400 hover:text-green-600"><Download size={16}/></button>
+                  <button onClick={() => onEdit(q)} className="p-2 text-gray-400 hover:text-blue-600"><Edit size={16}/></button>
+                  <button onClick={() => onDelete(q.id)} className="p-2 text-gray-400 hover:text-red-600"><Trash2 size={16}/></button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {quotes.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-400">No data found</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const ContractsList = ({ contracts, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+      <h3 className="font-bold text-gray-800 flex items-center"><FileSignature size={20} className="mr-2 text-green-600"/>{t('contracts')}</h3>
+      <button onClick={onNew} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center shadow hover:bg-green-700 transition font-bold text-sm">
+        <Plus size={18} className="mr-1" /> {t('new')}
+      </button>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm text-left">
+        <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-black tracking-widest">
+          <tr>
+            <th className="p-4">Contract No.</th>
+            <th className="p-4">Customer</th>
+            <th className="p-4">Date</th>
+            <th className="p-4 text-right">Total</th>
+            <th className="p-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {contracts.map((c: any) => (
+            <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+              <td className="p-4 font-bold text-green-700">{c.contractNumber}</td>
+              <td className="p-4">{c.customerSnapshot?.name}</td>
+              <td className="p-4 text-gray-500">{c.date}</td>
+              <td className="p-4 text-right font-black">¥ {c.totalAmount.toLocaleString()}</td>
+              <td className="p-4 text-right">
+                <div className="flex justify-end space-x-2">
+                  <button onClick={() => onExport(c, 'pdf')} className="p-2 text-gray-400 hover:text-green-600"><Download size={16}/></button>
+                  <button onClick={() => onEdit(c)} className="p-2 text-gray-400 hover:text-blue-600"><Edit size={16}/></button>
+                  <button onClick={() => onDelete(c.id)} className="p-2 text-gray-400 hover:text-red-600"><Trash2 size={16}/></button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {contracts.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-400">No data found</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [current, setCurrent] = useState<any>(null);
+
+  const handleEdit = (c: any) => { setCurrent(c); setIsEditing(true); };
+  const handleNew = () => { setCurrent({ id: generateId(), region: 'International', name: '', contactPerson: '', email: '', phone: '', address: '', source: 'Manual' }); setIsEditing(true); };
+
+  const handleSubmit = (e: any) => {
+    e.preventDefault();
+    onSave(current);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {isEditing ? (
+        <div className="bg-white p-6 rounded-xl shadow-lg border">
+          <h3 className="font-bold text-xl mb-6">{current.id ? t('edit') : t('new')} {t('customers')}</h3>
+          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+             <div className="col-span-2">
+               <label className="text-xs font-bold text-gray-500 uppercase">{t('region')}</label>
+               <select className="w-full p-2 border rounded" value={current.region} onChange={e => setCurrent({...current, region: e.target.value})}>
+                 <option value="International">International</option>
+                 <option value="Domestic">Domestic</option>
+               </select>
+             </div>
+             <div><label className="text-xs font-bold text-gray-500 uppercase">Company Name</label><input className="w-full p-2 border rounded" value={current.name} onChange={e => setCurrent({...current, name: e.target.value})} required/></div>
+             <div><label className="text-xs font-bold text-gray-500 uppercase">{t('contact')}</label><input className="w-full p-2 border rounded" value={current.contactPerson} onChange={e => setCurrent({...current, contactPerson: e.target.value})} /></div>
+             <div><label className="text-xs font-bold text-gray-500 uppercase">Email</label><input className="w-full p-2 border rounded" value={current.email} onChange={e => setCurrent({...current, email: e.target.value})} /></div>
+             <div><label className="text-xs font-bold text-gray-500 uppercase">Phone</label><input className="w-full p-2 border rounded" value={current.phone} onChange={e => setCurrent({...current, phone: e.target.value})} /></div>
+             <div className="col-span-2"><label className="text-xs font-bold text-gray-500 uppercase">Address</label><input className="w-full p-2 border rounded" value={current.address} onChange={e => setCurrent({...current, address: e.target.value})} /></div>
+             
+             {current.region === 'Domestic' && (
+               <>
+                 <div><label className="text-xs font-bold text-gray-500 uppercase">{t('taxId')}</label><input className="w-full p-2 border rounded" value={current.taxId || ''} onChange={e => setCurrent({...current, taxId: e.target.value})} /></div>
+                 <div><label className="text-xs font-bold text-gray-500 uppercase">Bank Name</label><input className="w-full p-2 border rounded" value={current.bankName || ''} onChange={e => setCurrent({...current, bankName: e.target.value})} /></div>
+                 <div className="col-span-2"><label className="text-xs font-bold text-gray-500 uppercase">Bank Account</label><input className="w-full p-2 border rounded" value={current.bankAccount || ''} onChange={e => setCurrent({...current, bankAccount: e.target.value})} /></div>
+               </>
+             )}
+
+             <div className="col-span-2 flex justify-end space-x-2 pt-4">
+               <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-gray-500">{t('cancel')}</button>
+               <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded font-bold shadow">{t('save')}</button>
+             </div>
+          </form>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+            <h3 className="font-bold text-gray-800 flex items-center"><Users size={20} className="mr-2 text-purple-600"/>{t('customers')}</h3>
+            <button onClick={handleNew} className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center shadow font-bold text-sm"><Plus size={18} className="mr-1" /> {t('new')}</button>
+          </div>
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-black">
+              <tr><th className="p-4">Company</th><th className="p-4">Contact</th><th className="p-4">Region</th><th className="p-4 text-right">Actions</th></tr>
+            </thead>
+            <tbody className="divide-y">
+              {customers.map((c: any) => (
+                <tr key={c.id} className="hover:bg-gray-50">
+                  <td className="p-4 font-bold">{c.name}</td>
+                  <td className="p-4">{c.contactPerson}</td>
+                  <td className="p-4"><span className={`px-2 py-1 rounded-full text-[10px] font-bold ${c.region === 'Domestic' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{c.region}</span></td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end space-x-2">
+                      <button onClick={() => handleEdit(c)} className="p-2 text-gray-400 hover:text-blue-600"><Edit size={16}/></button>
+                      <button onClick={() => onDelete(c.id)} className="p-2 text-gray-400 hover:text-red-600"><Trash2 size={16}/></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {customers.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-gray-400">No data found</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const NavItem = ({ icon, label, active, onClick }: any) => (
   <button onClick={onClick} className={`flex items-center w-full px-4 py-3 rounded-xl transition-all ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-bold' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
@@ -229,68 +396,4 @@ const Dashboard = ({ quotes, contracts, products, customers, settings, onNewQuot
       </div>
     </div>
   );
-};
-
-const QuotesList = ({ quotes, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => (
-  <div className="space-y-6">
-    <div className="flex justify-between items-center"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">{t('quotes')}</h3><button onClick={onNew} className="bg-blue-600 text-white px-6 py-2 rounded-2xl flex items-center font-bold shadow-xl shadow-blue-600/20"><Plus size={20} className="mr-2"/>{t('newQuote')}</button></div>
-    <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-400 border-b">
-          <tr><th className="p-5 text-left font-black uppercase text-[10px] tracking-widest">{t('number')}</th><th className="p-5 text-left font-black uppercase text-[10px] tracking-widest">Client</th><th className="p-5 text-right font-black uppercase text-[10px] tracking-widest">Total</th><th className="p-5 text-center font-black uppercase text-[10px] tracking-widest">Actions</th></tr>
-        </thead>
-        <tbody className="divide-y">
-          {quotes.map((q: any) => (<tr key={q.id} className="hover:bg-blue-50/30 group transition-colors"><td className="p-5 font-black text-slate-800">{q.number}</td><td className="p-5 text-slate-600 font-medium">{q.customerSnapshot?.name}</td><td className="p-5 text-right font-black text-blue-600">{q.currency} {q.total.toLocaleString()}</td><td className="p-5 text-center"><div className="flex justify-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => onExport(q, 'pdf')} disabled={isGenerating} className="p-2 text-green-600 hover:bg-green-50 rounded-lg"><Download size={18}/></button><button onClick={() => onEdit(q)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={18}/></button><button onClick={() => onDelete(q.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={18}/></button></div></td></tr>))}
-          {quotes.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-gray-400 font-bold">{t('noData')}</td></tr>}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
-const ContractsList = ({ contracts, onEdit, onDelete, onNew, onExport, isGenerating, t }: any) => (
-  <div className="space-y-6">
-    <div className="flex justify-between items-center"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">{t('contracts')}</h3><button onClick={onNew} className="bg-green-600 text-white px-6 py-2 rounded-2xl flex items-center font-bold shadow-xl shadow-green-600/20"><Plus size={20} className="mr-2"/>{t('new')} {t('contracts')}</button></div>
-    <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-400 border-b">
-          <tr><th className="p-5 text-left font-black uppercase text-[10px] tracking-widest">NO.</th><th className="p-5 text-left font-black uppercase text-[10px] tracking-widest">Buyer</th><th className="p-5 text-right font-black uppercase text-[10px] tracking-widest">Amount</th><th className="p-5 text-center font-black uppercase text-[10px] tracking-widest">Actions</th></tr>
-        </thead>
-        <tbody className="divide-y">
-          {contracts.map((c: any) => (<tr key={c.id} className="hover:bg-green-50/30 group transition-colors"><td className="p-5 font-black text-slate-800">{c.contractNumber}</td><td className="p-5 text-slate-600 font-medium">{c.customerSnapshot?.name}</td><td className="p-5 text-right font-black text-green-700">¥ {c.totalAmount.toLocaleString()}</td><td className="p-5 text-center"><div className="flex justify-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => onExport(c, 'pdf')} disabled={isGenerating} className="p-2 text-green-600 hover:bg-green-50 rounded-lg"><Download size={18}/></button><button onClick={() => onEdit(c)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={18}/></button><button onClick={() => onDelete(c.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={18}/></button></div></td></tr>))}
-          {contracts.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-gray-400 font-bold">{t('noData')}</td></tr>}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
-const CustomersManager = ({ customers, onSave, onDelete, t }: any) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [current, setCurrent] = useState<any>({});
-    const handleSubmit = (e: any) => { e.preventDefault(); onSave({ ...current, id: current.id || generateId() }); setIsEditing(false); };
-    return (
-        <div className="space-y-6">
-            {isEditing ? (
-                <div className="bg-white p-8 rounded-3xl shadow-2xl border"><h3 className="font-black text-xl mb-6">{current.id ? t('edit') : t('new')} {t('customers')}</h3><form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2"><label className="text-[10px] font-black uppercase text-gray-400">Region</label><select className="w-full p-3 border rounded-xl" value={current.region || 'International'} onChange={e => setCurrent({...current, region: e.target.value})}><option value="International">International</option><option value="Domestic">Domestic</option></select></div>
-                  <div className="col-span-2"><label className="text-[10px] font-black uppercase text-gray-400">Company Name</label><input required className="w-full p-3 border rounded-xl font-bold" value={current.name || ''} onChange={e => setCurrent({...current, name: e.target.value})}/></div>
-                  <div><label className="text-[10px] font-black uppercase text-gray-400">Contact</label><input className="w-full p-3 border rounded-xl" value={current.contactPerson || ''} onChange={e => setCurrent({...current, contactPerson: e.target.value})}/></div>
-                  <div><label className="text-[10px] font-black uppercase text-gray-400">Phone</label><input className="w-full p-3 border rounded-xl" value={current.phone || ''} onChange={e => setCurrent({...current, phone: e.target.value})}/></div>
-                  <div className="col-span-2"><label className="text-[10px] font-black uppercase text-gray-400">Address</label><input className="w-full p-3 border rounded-xl" value={current.address || ''} onChange={e => setCurrent({...current, address: e.target.value})}/></div>
-                  {current.region === 'Domestic' && (
-                    <div className="col-span-2 grid grid-cols-2 gap-4 pt-4 border-t">
-                        <div className="col-span-2"><label className="text-[10px] font-black uppercase text-gray-400">Tax ID</label><input className="w-full p-3 border rounded-xl" value={current.taxId || ''} onChange={e => setCurrent({...current, taxId: e.target.value})}/></div>
-                        <div><label className="text-[10px] font-black uppercase text-gray-400">Bank Name</label><input className="w-full p-3 border rounded-xl" value={current.bankName || ''} onChange={e => setCurrent({...current, bankName: e.target.value})}/></div>
-                        <div><label className="text-[10px] font-black uppercase text-gray-400">A/C No.</label><input className="w-full p-3 border rounded-xl font-mono" value={current.bankAccount || ''} onChange={e => setCurrent({...current, bankAccount: e.target.value})}/></div>
-                    </div>
-                  )}
-                  <div className="col-span-2 flex justify-end space-x-3 mt-8"><button type="button" onClick={() => setIsEditing(false)} className="px-6 py-2 text-gray-500 font-bold">{t('cancel')}</button><button type="submit" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black shadow-xl shadow-blue-600/20">{t('save')}</button></div>
-                </form></div>
-            ) : (
-                <><div className="flex justify-between items-center"><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">{t('customers')}</h3><button onClick={() => { setCurrent({ region: 'International' }); setIsEditing(true); }} className="bg-blue-600 text-white px-6 py-2 rounded-2xl flex items-center font-bold shadow-xl shadow-blue-600/20"><Plus size={20} className="mr-2"/>{t('new')}</button></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{customers.map((c: any) => (<div key={c.id} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm relative group hover:border-blue-300 transition-all"><span className={`absolute top-4 right-4 text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${c.region === 'Domestic' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{c.region}</span><h4 className="font-black text-slate-800 mb-1 pr-12 truncate">{c.name}</h4><p className="text-xs text-gray-500 mb-4">{c.contactPerson || 'No Contact'}</p><div className="pt-4 border-t flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-[10px] text-gray-400 font-mono">{c.phone || c.email}</span><div className="flex space-x-2"><button onClick={() => { setCurrent(c); setIsEditing(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16}/></button><button onClick={() => onDelete(c.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button></div></div></div>))}</div></>
-            )}
-        </div>
-    );
 };

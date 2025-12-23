@@ -7,6 +7,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import compression from 'compression'; // Optimized: Import compression
 import db from './db.js';
+// Always use import {GoogleGenAI} from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,6 +16,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const SECRET_KEY = 'your-secret-key-change-this-in-prod';
+
+// Initialize Gemini API with environment variable
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Optimized: Enable Gzip compression. This significantly reduces the size of large JSON responses
 // containing Base64 images, speeding up the "Login -> Dashboard" load time.
@@ -96,49 +101,43 @@ app.delete('/api/users/:id', authenticateToken, (req, res) => {
   });
 });
 
-// --- AI Chat Proxy ---
-app.post('/api/ai/chat', authenticateToken, (req, res) => {
+// --- AI Chat Proxy (Updated to Gemini API) ---
+app.post('/api/ai/chat', authenticateToken, async (req, res) => {
     const { messages } = req.body;
     
-    // Retrieve settings to get the API Key
-    db.get("SELECT data FROM settings WHERE id = 1", async (err, row) => {
-        if (err || !row) return res.status(500).json({ error: "System settings not found. Please save settings first." });
-        
-        try {
-            const settings = JSON.parse(row.data);
-            const aiConfig = settings.ai || {};
-            
-            if (!aiConfig.apiKey) {
-                return res.status(400).json({ error: "AI API Key is missing. Please configure it in System Settings." });
-            }
-            
-            // Construct the request to the AI Provider
-            const baseUrl = (aiConfig.baseUrl || 'https://yunwu.ai/v1').replace(/\/$/, ''); // Remove trailing slash
-            const response = await fetch(`${baseUrl}/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${aiConfig.apiKey}`
-                },
-                body: JSON.stringify({
-                    model: aiConfig.model || 'gpt-3.5-turbo',
-                    messages: messages,
-                    temperature: 0.7
-                })
-            });
+    try {
+        // Extract system instruction and user/assistant messages
+        const systemInstruction = messages.find(m => m.role === 'system')?.content;
+        const chatContents = messages
+            .filter(m => m.role !== 'system')
+            .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+            .join('\n');
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                return res.status(response.status).json({ error: `AI Provider Error: ${errorText}` });
-            }
+        // Always use ai.models.generateContent to query GenAI with both the model name and prompt.
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: chatContents,
+            config: {
+                systemInstruction: systemInstruction,
+                temperature: 0.7,
+            },
+        });
 
-            const data = await response.json();
-            res.json(data);
-        } catch (error) {
-            console.error("AI Request Failed:", error);
-            res.status(500).json({ error: "Internal Server Error during AI request." });
-        }
-    });
+        // Mimic OpenAI response structure to keep the existing frontend compatibility
+        res.json({
+            choices: [
+                {
+                    message: {
+                        role: 'assistant',
+                        content: response.text
+                    }
+                }
+            ]
+        });
+    } catch (error) {
+        console.error("Gemini AI Request Failed:", error);
+        res.status(500).json({ error: `Gemini API Error: ${error.message || 'Unknown error'}` });
+    }
 });
 
 // --- Generic CRUD ---

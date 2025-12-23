@@ -67,11 +67,6 @@ export const storageService = {
              stampDataUrl: '',
              contractTerms: DEFAULT_DOMESTIC_TERMS,
              contractPrefix: 'ULHTZH'
-          },
-          ai: {
-              apiKey: '',
-              baseUrl: 'https://yunwu.ai/v1',
-              model: 'gpt-3.5-turbo'
           }
         };
     }
@@ -99,14 +94,6 @@ export const storageService = {
     // Polyfill units
     if (!settings.productUnits) {
         settings.productUnits = 'PCS, SET, BOX, CTN, KG, M, ROLL, PACK, PAIR, UNIT, KIT, DRUM, BAG, DOZ';
-    }
-    // Polyfill AI
-    if (!settings.ai) {
-        settings.ai = {
-            apiKey: '',
-            baseUrl: 'https://yunwu.ai/v1',
-            model: 'gpt-3.5-turbo'
-        };
     }
     
     return settings;

@@ -22,7 +22,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
     position: 'relative',
     boxSizing: 'border-box',
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    color: '#1e293b', 
+    color: '#1e293b',
   };
 
   let containerStyle: React.CSSProperties = { ...baseStyle };
@@ -43,8 +43,7 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
       minHeight: `${a4Height}px`,
       overflow: 'visible'
     };
-    // Move off-screen but keep width intact
-    wrapperClass = "fixed top-0 left-[-2000px] z-[-100]"; 
+    wrapperClass = ""; 
   } else {
     containerStyle = { ...baseStyle, display: 'none' };
   }
@@ -73,19 +72,10 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                         <p className="font-bold text-slate-900 text-base mb-1">{settings.name}</p>
                         <p>{settings.address}</p>
                         <p>{settings.city}, {settings.country}</p>
-                        <div className="mt-3 space-y-0.5">
-                             {quote.salesperson?.name ? (
-                               <>
-                                   <p><span className="font-bold text-slate-700">Rep:</span> {quote.salesperson.name}</p>
-                                   <p><span className="font-bold text-slate-700">Email:</span> {quote.salesperson.email}</p>
-                                   {quote.salesperson.phone && <p><span className="font-bold text-slate-700">Tel:</span> {quote.salesperson.phone}</p>}
-                               </>
-                           ) : (
-                               <>
-                                   {settings.email && <p><span className="font-bold text-slate-700">Email:</span> {settings.email}</p>}
-                                   {settings.phone && <p><span className="font-bold text-slate-700">Tel:</span> {settings.phone}</p>}
-                               </>
-                           )}
+                        <div className="mt-4 space-y-1">
+                             <p><span className="font-bold text-slate-700">Rep:</span> {quote.salesperson?.name || 'Authorized Representative'}</p>
+                             <p><span className="font-bold text-slate-700">Email:</span> {quote.salesperson?.email || settings.email}</p>
+                             {quote.salesperson?.phone && <p><span className="font-bold text-slate-700">Tel:</span> {quote.salesperson.phone}</p>}
                         </div>
                     </div>
                 </div>
@@ -107,9 +97,9 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
 
             {/* --- ADDRESSES --- */}
             <div className="mb-10 no-split">
-                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Bill To</h3>
-                 <div className="border-t border-slate-200 pt-4">
-                    <h2 className="text-lg font-bold text-slate-800 mb-1">{customer.name}</h2>
+                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Bill To</h3>
+                 <div className="border-t-2 border-slate-900 pt-4 px-1">
+                    <h2 className="text-xl font-black text-slate-900 mb-1">{customer.name}</h2>
                     <div className="grid grid-cols-2 gap-8 text-sm text-slate-600">
                         <div>
                             <p className="mb-1 text-slate-800">{customer.address}</p>
@@ -117,28 +107,28 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                             <p>{customer.country}</p>
                         </div>
                         <div className="text-right sm:text-left">
-                            <p><span className="text-slate-400 w-12 inline-block">Attn</span> <span className="font-medium text-slate-800">{customer.contactPerson}</span></p>
-                            <p><span className="text-slate-400 w-12 inline-block">Tel</span> {customer.phone}</p>
-                            <p><span className="text-slate-400 w-12 inline-block">Email</span> {customer.email}</p>
+                            <p><span className="text-slate-400 w-12 inline-block font-bold">Attn</span> <span className="font-bold text-slate-900">{customer.contactPerson}</span></p>
+                            <p><span className="text-slate-400 w-12 inline-block font-bold">Tel</span> {customer.phone}</p>
+                            <p><span className="text-slate-400 w-12 inline-block font-bold">Email</span> {customer.email}</p>
                         </div>
                     </div>
                  </div>
             </div>
 
-            {/* --- PRODUCT TABLE --- */}
+            {/* --- PRODUCT TABLE (Fixed widths for robust layout) --- */}
             <div className="mb-8 flex-grow overflow-visible">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
                     <thead>
-                        <tr className="border-b-2 border-slate-300">
+                        <tr className="border-b-2 border-slate-900">
                             {showImages && (
-                                <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[8%]">Image</th>
+                                <th className="pb-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider w-[8%]">Image</th>
                             )}
-                            <th className={`pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider ${showImages ? 'w-[32%]' : 'w-[40%]'}`}>Description</th>
-                            <th className="pb-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Brand</th>
-                            <th className="pb-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Lead Time</th>
-                            <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[10%]">Qty</th>
-                            <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[15%] pr-8">Price</th>
-                            <th className="pb-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider w-[15%]">Amount</th>
+                            <th className={`pb-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-wider ${showImages ? 'w-[32%]' : 'w-[40%]'}`}>Description</th>
+                            <th className="pb-3 text-center text-[10px] font-black text-slate-500 uppercase tracking-wider w-[12%]">Brand</th>
+                            <th className="pb-3 text-center text-[10px] font-black text-slate-500 uppercase tracking-wider w-[12%]">Lead Time</th>
+                            <th className="pb-3 text-center text-[10px] font-black text-slate-500 uppercase tracking-wider w-[8%]">Qty</th>
+                            <th className="pb-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-wider w-[13%]">Price</th>
+                            <th className="pb-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-wider w-[15%]">Amount</th>
                         </tr>
                     </thead>
                     <tbody className="text-sm">
@@ -154,16 +144,17 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
                                     </td>
                                 )}
                                 <td className="py-4 align-top pr-4">
-                                    <p className="font-bold text-slate-800 text-sm mb-0.5">{item.sku}</p>
-                                    <p className="text-slate-600 text-xs leading-relaxed">{item.name}</p>
+                                    <p className="font-bold text-slate-900 text-sm mb-0.5">{item.sku}</p>
+                                    <p className="text-slate-500 text-xs leading-relaxed">{item.name}</p>
                                 </td>
-                                <td className="py-4 align-top text-center text-slate-600">{item.brand || '—'}</td>
-                                <td className="py-4 align-top text-left text-slate-600 text-xs">{item.leadTime || '-'}</td>
-                                <td className="py-4 align-top text-right font-medium">
-                                    {item.quantity} <span className="text-xs text-slate-400 font-normal">{item.unit}</span>
+                                <td className="py-4 align-top text-center text-slate-600 text-xs">{item.brand || '—'}</td>
+                                <td className="py-4 align-top text-center text-slate-600 text-xs">{item.leadTime || 'in stock'}</td>
+                                <td className="py-4 align-top text-center">
+                                    <span className="font-bold text-slate-900">{item.quantity}</span>
+                                    <span className="text-[10px] text-slate-400 block font-medium">{item.unit}</span>
                                 </td>
-                                <td className="py-4 align-top text-right text-slate-600 pr-8">{fmt(item.price)}</td>
-                                <td className="py-4 align-top text-right font-bold text-slate-800">{fmt(item.price * item.quantity)}</td>
+                                <td className="py-4 align-top text-right text-slate-600 font-mono">{fmt(item.price)}</td>
+                                <td className="py-4 align-top text-right font-black text-slate-900 font-mono">{fmt(item.price * item.quantity)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -171,73 +162,77 @@ export const InvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
             </div>
 
             {/* --- TOTALS & BANK INFO --- */}
-            <div className="flex justify-between items-start mb-8 no-split pt-6 border-t border-slate-200">
-                <div className="w-[58%] pr-8">
-                     <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Payment Details</h4>
-                     <div className="bg-slate-50 p-5 rounded-lg border border-slate-100 text-[11px] text-slate-600 font-mono leading-normal whitespace-pre-wrap shadow-inner overflow-hidden">
+            <div className="flex justify-between items-start mb-8 no-split pt-8 border-t border-slate-200">
+                <div className="w-[55%] pr-8">
+                     <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-3">Payment Details</h4>
+                     <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 text-[11px] text-slate-600 font-mono leading-normal whitespace-pre-wrap shadow-inner overflow-hidden">
                         {settings.bankInfo}
                      </div>
 
-                     <div className="mt-4 text-[11px] text-slate-500 space-y-1">
-                        <p><strong className="text-slate-700">Incoterms:</strong> {quote.incoterms}</p>
-                        <p><strong className="text-slate-700">Payment:</strong> {quote.paymentTerms}</p>
-                        {quote.notes && <p className="mt-2 italic">"{quote.notes}"</p>}
+                     <div className="mt-6 text-[11px] text-slate-500 space-y-1.5">
+                        <p><strong className="text-slate-900 uppercase tracking-tighter">Incoterms:</strong> {quote.incoterms}</p>
+                        <p><strong className="text-slate-900 uppercase tracking-tighter">Payment:</strong> {quote.paymentTerms}</p>
+                        {quote.notes && (
+                            <div className="mt-4 p-3 border-l-2 border-slate-200 italic text-slate-400">
+                                "{quote.notes}"
+                            </div>
+                        )}
                      </div>
                 </div>
 
-                <div className="w-[38%]">
-                    <div className="space-y-2.5 text-sm">
-                        <div className="flex justify-between text-slate-600">
-                            <span>Subtotal</span>
-                            <span className="font-medium">{quote.currency} {fmt(quote.subtotal)}</span>
+                <div className="w-[40%]">
+                    <div className="space-y-3 text-sm">
+                        <div className="flex justify-between text-slate-500">
+                            <span className="font-bold uppercase text-[10px] tracking-wider">Subtotal</span>
+                            <span className="font-bold font-mono">{quote.currency} {fmt(quote.subtotal)}</span>
                         </div>
                         {quote.discountAmount > 0 && (
                             <div className="flex justify-between text-orange-600">
-                                <span>Discount ({quote.discountRate}%)</span>
-                                <span>- {quote.currency} {fmt(quote.discountAmount)}</span>
+                                <span className="font-bold uppercase text-[10px] tracking-wider">Discount ({quote.discountRate}%)</span>
+                                <span className="font-bold font-mono">- {quote.currency} {fmt(quote.discountAmount)}</span>
                             </div>
                         )}
                         {quote.shipping > 0 && (
-                            <div className="flex justify-between text-slate-600">
-                                <span>Shipping</span>
-                                <span>{quote.currency} {fmt(quote.shipping)}</span>
+                            <div className="flex justify-between text-slate-500">
+                                <span className="font-bold uppercase text-[10px] tracking-wider">Shipping</span>
+                                <span className="font-bold font-mono">{quote.currency} {fmt(quote.shipping)}</span>
                             </div>
                         )}
-                        <div className="h-px bg-slate-200 my-2"></div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-base font-bold text-slate-800">Total</span>
-                            <span className="text-2xl font-bold text-blue-600">{quote.currency} {fmt(quote.total)}</span>
+                        <div className="h-px bg-slate-200 my-4"></div>
+                        <div className="flex justify-between items-center bg-slate-900 text-white p-4 rounded-xl">
+                            <span className="text-xs font-black uppercase tracking-widest">Total Amount</span>
+                            <span className="text-2xl font-black font-mono tracking-tighter">{quote.currency} {fmt(quote.total)}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* --- FOOTER / SIGNATURE --- */}
-            <div className="mt-auto no-split border-t border-slate-100 pt-8">
-                <div className="grid grid-cols-2 gap-12">
+            <div className="mt-auto no-split border-t border-slate-100 pt-10">
+                <div className="grid grid-cols-2 gap-16">
                      <div className="text-center">
-                         <div className="border-b border-slate-300 h-16 mb-2"></div>
-                         <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">Confirmed & Accepted By (Buyer)</p>
+                         <div className="border-b border-slate-200 h-16 mb-3"></div>
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Confirmed & Accepted By (Buyer)</p>
                      </div>
                      
                      <div className="text-center flex flex-col items-center">
-                         <div className="h-28 w-full relative flex flex-col items-center justify-end pb-2">
+                         <div className="h-32 w-full relative flex flex-col items-center justify-end pb-3">
                              {settings.stampDataUrl && (
                                  <img 
                                     src={settings.stampDataUrl} 
                                     alt="Stamp"
-                                    className="absolute bottom-4 left-1/2 -translate-x-1/2 w-40 h-40 object-contain mix-blend-multiply opacity-90 pointer-events-none"
+                                    className="absolute bottom-6 left-1/2 -translate-x-1/2 w-48 h-48 object-contain mix-blend-multiply opacity-90 pointer-events-none"
                                     crossOrigin="anonymous"
                                  />
                              )}
-                             <span className="font-serif font-bold text-lg text-slate-800 relative z-10">{settings.name}</span>
+                             <span className="font-serif font-black text-lg text-slate-900 relative z-10">{settings.name}</span>
                          </div>
-                         <div className="border-b border-slate-300 w-full mb-2"></div>
-                         <p className="text-xs font-bold text-slate-400 uppercase tracking-tight">Authorized Signature (Seller)</p>
+                         <div className="border-b border-slate-200 w-full mb-3"></div>
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorized Signature (Seller)</p>
                      </div>
                 </div>
                 
-                <div className="text-center mt-12 text-[10px] text-slate-400 uppercase tracking-widest">
+                <div className="text-center mt-12 text-[9px] text-slate-300 font-bold uppercase tracking-[0.3em]">
                     Thank you for your business
                 </div>
             </div>
