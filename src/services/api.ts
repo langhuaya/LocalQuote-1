@@ -1,9 +1,8 @@
 
 import { Quote, Product, Customer, CompanySettings, User, Brand, Contract } from '../types';
 
-const API_URL = import.meta.env.PROD 
-  ? '/api' 
-  : `http://${window.location.hostname}:3001/api`;
+// 使用相对路径，让预览环境的代理自动处理端口转发，解决 Failed to fetch
+const API_URL = '/api';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
